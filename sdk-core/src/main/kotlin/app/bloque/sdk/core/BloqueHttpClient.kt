@@ -113,10 +113,10 @@ class BloqueHttpClient(
                 val responseBody = response.body?.string()
 
                 if (!response.isSuccessful) {
-                    throw BloqueApiException(
+                    throw createBloqueError(
                         statusCode = response.code,
                         errorBody = responseBody,
-                        message = "API error ${response.code}: $responseBody"
+                        defaultMessage = "API error ${response.code}: $responseBody"
                     )
                 }
 
@@ -131,7 +131,11 @@ class BloqueHttpClient(
                 }
             }
         } catch (e: IOException) {
-            throw BloqueNetworkException("Network error: ${e.message}", e)
+            throw BloqueNetworkError("Network error: ${e.message}", e)
+        } catch (e: BloqueException) {
+            throw e
+        } catch (e: Exception) {
+            throw BloqueException("Unexpected error: ${e.message}", e)
         }
     }
 }

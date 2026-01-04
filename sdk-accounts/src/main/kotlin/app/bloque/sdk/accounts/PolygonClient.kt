@@ -6,19 +6,20 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Client for Bancolombia account operations
+ * Client for Polygon wallet account operations
  */
-class BancolombiaClient constructor(
+class PolygonClient constructor(
     httpClient: BloqueHttpClient
 ) : BaseClient(httpClient) {
+
     /**
-     * Create a new Bancolombia account
+     * Create a new Polygon wallet account
      *
      * @param params Optional parameters for account creation
-     * @return The created BancolombiaAccount
+     * @return The created PolygonAccount
      */
     @JvmOverloads
-    fun create(params: CreateBancolombiaAccountParams = CreateBancolombiaAccountParams()): BancolombiaAccount {
+    fun create(params: CreatePolygonAccountParams = CreatePolygonAccountParams()): PolygonAccount {
         val request = CreateAccountRequest(
             holderUrn = params.holderUrn ?: httpClient.getUrn() ?: "",
             webhookUrl = params.webhookUrl,
@@ -31,8 +32,8 @@ class BancolombiaClient constructor(
             }
         )
 
-        val response = httpClient.post<CreateAccountResponse<BancolombiaDetails>, CreateAccountRequest>(
-            path = "/api/mediums/bancolombia",
+        val response = httpClient.post<CreateAccountResponse<PolygonDetails>, CreateAccountRequest>(
+            path = "/api/mediums/polygon",
             body = request
         )
 
@@ -45,11 +46,11 @@ class BancolombiaClient constructor(
      * @param params Parameters with URN and new metadata
      * @return Updated account
      */
-    fun updateMetadata(params: UpdateBancolombiaMetadataParams): BancolombiaAccount {
+    fun updateMetadata(params: UpdatePolygonMetadataParams): PolygonAccount {
         @Serializable
         data class UpdateMetadataRequest(val metadata: Map<String, String?>)
 
-        val response = httpClient.put<CreateAccountResponse<BancolombiaDetails>, UpdateMetadataRequest>(
+        val response = httpClient.put<CreateAccountResponse<PolygonDetails>, UpdateMetadataRequest>(
             path = "/api/accounts/${params.urn}/metadata",
             body = UpdateMetadataRequest(params.metadata)
         )
@@ -58,27 +59,16 @@ class BancolombiaClient constructor(
     }
 
     /**
-     * Update account name
-     *
-     * @param urn Account URN
-     * @param name New name
-     * @return Updated account
-     */
-    fun updateName(urn: String, name: String): BancolombiaAccount {
-        return updateMetadata(UpdateBancolombiaMetadataParams(urn, mapOf("name" to name)))
-    }
-
-    /**
      * Activate account
      *
      * @param urn Account URN
      * @return Updated account
      */
-    fun activate(urn: String): BancolombiaAccount {
+    fun activate(urn: String): PolygonAccount {
         @Serializable
         data class StatusRequest(@SerialName("status") val status: String)
 
-        val response = httpClient.put<CreateAccountResponse<BancolombiaDetails>, StatusRequest>(
+        val response = httpClient.put<CreateAccountResponse<PolygonDetails>, StatusRequest>(
             path = "/api/accounts/$urn/status",
             body = StatusRequest("active")
         )
@@ -92,11 +82,11 @@ class BancolombiaClient constructor(
      * @param urn Account URN
      * @return Updated account
      */
-    fun freeze(urn: String): BancolombiaAccount {
+    fun freeze(urn: String): PolygonAccount {
         @Serializable
         data class StatusRequest(@SerialName("status") val status: String)
 
-        val response = httpClient.put<CreateAccountResponse<BancolombiaDetails>, StatusRequest>(
+        val response = httpClient.put<CreateAccountResponse<PolygonDetails>, StatusRequest>(
             path = "/api/accounts/$urn/status",
             body = StatusRequest("frozen")
         )
@@ -110,11 +100,11 @@ class BancolombiaClient constructor(
      * @param urn Account URN
      * @return Updated account
      */
-    fun disable(urn: String): BancolombiaAccount {
+    fun disable(urn: String): PolygonAccount {
         @Serializable
         data class StatusRequest(@SerialName("status") val status: String)
 
-        val response = httpClient.put<CreateAccountResponse<BancolombiaDetails>, StatusRequest>(
+        val response = httpClient.put<CreateAccountResponse<PolygonDetails>, StatusRequest>(
             path = "/api/accounts/$urn/status",
             body = StatusRequest("disabled")
         )
@@ -122,11 +112,11 @@ class BancolombiaClient constructor(
         return mapAccountResponse(response.result.account)
     }
 
-    private fun mapAccountResponse(account: AccountData<BancolombiaDetails>): BancolombiaAccount {
-        return BancolombiaAccount(
+    private fun mapAccountResponse(account: AccountData<PolygonDetails>): PolygonAccount {
+        return PolygonAccount(
             urn = account.urn,
             id = account.id,
-            referenceCode = account.details.referenceCode,
+            walletAddress = account.details.walletAddress,
             status = account.status,
             ownerUrn = account.ownerUrn,
             ledgerId = account.ledgerAccountId,

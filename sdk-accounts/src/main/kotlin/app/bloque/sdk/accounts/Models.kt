@@ -79,3 +79,225 @@ data class CreateBancolombiaAccountParams @JvmOverloads constructor(
     val ledgerId: String? = null,
     val metadata: Map<String, String?> = emptyMap()
 )
+
+// ============================================
+// Card Account Models
+// ============================================
+
+@Serializable
+data class CardDetails(
+    @SerialName("card_number") val cardNumber: String? = null,
+    @SerialName("card_holder") val cardHolder: String? = null,
+    @SerialName("expiry_date") val expiryDate: String? = null,
+    val cvv: String? = null
+)
+
+data class CardAccount @JvmOverloads constructor(
+    val urn: String,
+    val id: String,
+    val cardNumber: String?,
+    val cardHolder: String?,
+    val expiryDate: String?,
+    val status: String,
+    val ownerUrn: String,
+    val ledgerId: String? = null,
+    val webhookUrl: String? = null,
+    val metadata: Map<String, String?> = emptyMap(),
+    val createdAt: String = "",
+    val updatedAt: String = ""
+)
+
+data class CreateCardAccountParams @JvmOverloads constructor(
+    val name: String? = null,
+    val holderUrn: String? = null,
+    val webhookUrl: String? = null,
+    val ledgerId: String? = null,
+    val metadata: Map<String, String?> = emptyMap()
+)
+
+data class ListCardParams @JvmOverloads constructor(
+    val holderUrn: String? = null,
+    val status: String? = null
+)
+
+data class UpdateCardMetadataParams @JvmOverloads constructor(
+    val urn: String,
+    val metadata: Map<String, String?>
+)
+
+// ============================================
+// Virtual Account Models
+// ============================================
+
+@Serializable
+data class VirtualDetails(
+    @SerialName("account_number") val accountNumber: String? = null,
+    @SerialName("routing_number") val routingNumber: String? = null
+)
+
+data class VirtualAccount @JvmOverloads constructor(
+    val urn: String,
+    val id: String,
+    val accountNumber: String?,
+    val routingNumber: String?,
+    val status: String,
+    val ownerUrn: String,
+    val ledgerId: String? = null,
+    val webhookUrl: String? = null,
+    val metadata: Map<String, String?> = emptyMap(),
+    val createdAt: String = "",
+    val updatedAt: String = ""
+)
+
+data class CreateVirtualAccountParams @JvmOverloads constructor(
+    val name: String? = null,
+    val holderUrn: String? = null,
+    val webhookUrl: String? = null,
+    val ledgerId: String? = null,
+    val metadata: Map<String, String?> = emptyMap()
+)
+
+data class UpdateVirtualMetadataParams @JvmOverloads constructor(
+    val urn: String,
+    val metadata: Map<String, String?>
+)
+
+// ============================================
+// Polygon Account Models
+// ============================================
+
+@Serializable
+data class PolygonDetails(
+    @SerialName("wallet_address") val walletAddress: String? = null
+)
+
+data class PolygonAccount @JvmOverloads constructor(
+    val urn: String,
+    val id: String,
+    val walletAddress: String?,
+    val status: String,
+    val ownerUrn: String,
+    val ledgerId: String? = null,
+    val webhookUrl: String? = null,
+    val metadata: Map<String, String?> = emptyMap(),
+    val createdAt: String = "",
+    val updatedAt: String = ""
+)
+
+data class CreatePolygonAccountParams @JvmOverloads constructor(
+    val name: String? = null,
+    val holderUrn: String? = null,
+    val webhookUrl: String? = null,
+    val ledgerId: String? = null,
+    val metadata: Map<String, String?> = emptyMap()
+)
+
+data class UpdatePolygonMetadataParams @JvmOverloads constructor(
+    val urn: String,
+    val metadata: Map<String, String?>
+)
+
+data class UpdateBancolombiaMetadataParams @JvmOverloads constructor(
+    val urn: String,
+    val metadata: Map<String, String?>
+)
+
+// ============================================
+// Transfer Models
+// ============================================
+
+/**
+ * Supported assets for transfers
+ */
+enum class SupportedAsset(val value: String) {
+    DUSD_6("DUSD/6"),
+    KSM_12("KSM/12");
+
+    override fun toString(): String = value
+
+    companion object {
+        @JvmStatic
+        fun fromString(value: String): SupportedAsset {
+            return values().find { it.value == value }
+                ?: throw IllegalArgumentException("Unknown asset: $value")
+        }
+    }
+}
+
+data class TransferParams @JvmOverloads constructor(
+    val sourceUrn: String,
+    val destinationUrn: String,
+    val amount: String,
+    val asset: SupportedAsset,
+    val metadata: Map<String, Any?> = emptyMap()
+)
+
+@Serializable
+internal data class TransferRequest(
+    @SerialName("source_urn") val sourceUrn: String,
+    @SerialName("destination_urn") val destinationUrn: String,
+    val amount: String,
+    val asset: String,
+    val metadata: Map<String, String> = emptyMap()
+)
+
+@Serializable
+internal data class TransferResponseData(
+    @SerialName("queue_id") val queueId: String,
+    val status: String,
+    val message: String
+)
+
+@Serializable
+internal data class TransferResponseWrapper(
+    val result: TransferResponseData
+)
+
+data class TransferResult @JvmOverloads constructor(
+    val queueId: String,
+    val status: String,
+    val message: String
+)
+
+// ============================================
+// Balance and Movement Models
+// ============================================
+
+data class TokenBalance @JvmOverloads constructor(
+    val current: String,
+    val pending: String,
+    val `in`: String,
+    val out: String
+)
+
+@Serializable
+internal data class TokenBalanceWire(
+    val current: String,
+    val pending: String,
+    @SerialName("in") val inAmount: String,
+    @SerialName("out") val outAmount: String
+)
+
+data class GetBalanceParams @JvmOverloads constructor(
+    val urn: String,
+    val asset: SupportedAsset? = null
+)
+
+data class ListMovementsParams @JvmOverloads constructor(
+    val urn: String,
+    val limit: Int? = null,
+    val offset: Int? = null
+)
+
+@Serializable
+data class CardMovement(
+    val id: String,
+    val amount: String,
+    val asset: String,
+    @SerialName("from_account_id") val fromAccountId: String,
+    @SerialName("to_account_id") val toAccountId: String,
+    val direction: String,
+    val reference: String,
+    @SerialName("rail_name") val railName: String,
+    @SerialName("created_at") val createdAt: String
+)

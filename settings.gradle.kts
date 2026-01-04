@@ -6,4 +6,7 @@ rootProject.name = "bloque-sdk"
 
 include("sdk-core")
 include("sdk-accounts")
+include("sdk-identity")
+include("sdk-compliance")
+include("sdk-orgs")
 include("sdk")

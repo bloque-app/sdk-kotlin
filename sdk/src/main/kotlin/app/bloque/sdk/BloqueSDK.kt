@@ -4,6 +4,10 @@ import app.bloque.sdk.core.AuthConfig
 import app.bloque.sdk.core.BloqueConfig
 import app.bloque.sdk.core.BloqueHttpClient
 import app.bloque.sdk.core.Mode
+import app.bloque.sdk.identity.BusinessRegisterParams
+import app.bloque.sdk.identity.IndividualRegisterParams
+import app.bloque.sdk.identity.OriginsClient
+import app.bloque.sdk.identity.RegisterParams
 
 /**
  * Main entry point for Bloque SDK
@@ -16,7 +20,7 @@ import app.bloque.sdk.core.Mode
  *     mode = Mode.PRODUCTION
  * )
  *
- * val session = bloque.connect("did:bloque:bloque-whatsapp:573023348486")
+ * val session = bloque.connect("nestor")
  * val account = session.accounts.bancolombia.create(
  *     CreateBancolombiaAccountParams(name = "Ahorros")
  * )
@@ -30,7 +34,7 @@ import app.bloque.sdk.core.Mode
  *     .mode(Mode.PRODUCTION)
  *     .build();
  *
- * UserSession session = bloque.connect("did:bloque:bloque-whatsapp:573023348486");
+ * UserSession session = bloque.connect("nestor");
  * BancolombiaAccount account = session.getAccounts().getBancolombia().create();
  * ```
  */
@@ -40,9 +44,39 @@ class BloqueSDK private constructor(
     private val httpClient = BloqueHttpClient(config)
 
     /**
-     * Connect with an alias/DID and get an authenticated session
+     * Register a new identity and get an authenticated session
      *
-     * @param alias The user alias or DID (e.g., "did:bloque:bloque-whatsapp:573023348486")
+     * @param alias The user alias (e.g., username, email, phone number)
+     * @param params Registration parameters (individual or business profile)
+     * @return UserSession with access to all SDK modules
+     */
+    fun register(alias: String, params: RegisterParams): UserSession {
+        val originsClient = OriginsClient(httpClient)
+
+        // Create params with alias and origin from config
+        val registerParams = when (params) {
+            is IndividualRegisterParams -> params.copy(
+                alias = alias,
+                origin = config.origin
+            )
+            is BusinessRegisterParams -> params.copy(
+                alias = alias,
+                origin = config.origin
+            )
+        }
+
+        val result = originsClient.register(registerParams)
+
+        httpClient.updateAccessToken(result.accessToken)
+        httpClient.updateUrn(result.urn)
+
+        return UserSession(httpClient)
+    }
+
+    /**
+     * Connect with an alias and get an authenticated session
+     *
+     * @param alias The user alias (e.g., "nestor", "user@email.com", "+1234567890")
      * @return UserSession with access to all SDK modules
      */
     fun connect(alias: String): UserSession {
@@ -54,7 +88,7 @@ class BloqueSDK private constructor(
                 challengeType = "API_KEY",
                 value = AssertionValue(
                     apiKey = config.apiKey,
-                    alias = urn
+                    alias = alias  // Use original alias, not URN
                 )
             ),
             extraContext = emptyMap()
@@ -66,17 +100,13 @@ class BloqueSDK private constructor(
         )
 
         httpClient.updateAccessToken(response.result.accessToken)
-        httpClient.updateUrn(urn)
+        httpClient.updateUrn(urn)  // Set URN after successful authentication
 
         return UserSession(httpClient)
     }
 
     private fun buildUrn(alias: String): String {
-        return if (alias.startsWith("did:")) {
-            alias
-        } else {
-            "did:bloque:${config.origin}:$alias"
-        }
+        return "did:bloque:${config.origin}:$alias"
     }
 
     companion object {
