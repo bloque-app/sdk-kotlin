@@ -5,7 +5,7 @@ plugins {
 
 allprojects {
     group = "app.bloque.sdk"
-    version = "0.1.0-SNAPSHOT"
+    version = "0.0.1"
 
     repositories {
         mavenCentral()
@@ -49,6 +49,31 @@ subprojects {
                                 url.set("https://opensource.org/licenses/MIT")
                             }
                         }
+
+                        developers {
+                            developer {
+                                id.set("bloque")
+                                name.set("Bloque Team")
+                                email.set("dev@bloque.team")
+                            }
+                        }
+
+                        scm {
+                            connection.set("scm:git:git://github.com/bloque-app/sdk-kotlin.git")
+                            developerConnection.set("scm:git:ssh://github.com/bloque-app/sdk-kotlin.git")
+                            url.set("https://github.com/bloque-app/sdk-kotlin")
+                        }
+                    }
+                }
+            }
+
+            repositories {
+                maven {
+                    name = "OSSRH"
+                    url = uri("https://central.sonatype.com/api/v1/publisher/upload")
+                    credentials {
+                        username = System.getenv("MAVEN_USERNAME")
+                        password = System.getenv("MAVEN_PASSWORD")
                     }
                 }
             }
