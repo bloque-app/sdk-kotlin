@@ -15,19 +15,37 @@ class BancolombiaClient constructor(
      * Create a new Bancolombia account
      *
      * @param params Optional parameters for account creation
+     * @param options Optional settings to wait for account activation
      * @return The created BancolombiaAccount
+     *
+     * Example usage:
+     * ```kotlin
+     * // Create without waiting
+     * val account = session.accounts.bancolombia.create(
+     *     CreateBancolombiaAccountParams(name = "My Account")
+     * )
+     *
+     * // Create and wait for active status with ledger
+     * val account = session.accounts.bancolombia.create(
+     *     CreateBancolombiaAccountParams(name = "My Account"),
+     *     CreateAccountOptions(waitLedger = true)
+     * )
+     * ```
      */
     @JvmOverloads
-    fun create(params: CreateBancolombiaAccountParams = CreateBancolombiaAccountParams()): BancolombiaAccount {
+    fun create(
+        params: CreateBancolombiaAccountParams = CreateBancolombiaAccountParams(),
+        options: CreateAccountOptions? = null
+    ): BancolombiaAccount {
         val request = CreateAccountRequest(
             holderUrn = params.holderUrn ?: httpClient.getUrn() ?: "",
             webhookUrl = params.webhookUrl,
             ledgerAccountId = params.ledgerId,
-            input = emptyMap(),
+            input = null,
             metadata = buildMap {
                 put("source", "sdk-kotlin")
                 params.name?.let { put("name", it) }
-                putAll(params.metadata)
+                params.metadata?.let { putAll(it) }
             }
         )
 
@@ -36,7 +54,80 @@ class BancolombiaClient constructor(
             body = request
         )
 
-        return mapAccountResponse(response.result.account)
+        val account = mapAccountResponse(response.result.account)
+
+        if (options?.waitLedger == true) {
+            return waitForActiveStatus(account.urn, options.timeout)
+        }
+
+        return account
+    }
+
+    /**
+     * List bancolombia accounts
+     *
+     * @param params Optional filter parameters
+     * @return List of bancolombia accounts
+     */
+    @JvmOverloads
+    fun list(params: ListBancolombiaParams = ListBancolombiaParams()): List<BancolombiaAccount> {
+        @Serializable
+        data class BancolombiaListResponse(val accounts: List<AccountData<BancolombiaDetails>>)
+
+        val holderUrn = params.holderUrn ?: httpClient.getUrn()
+
+        val queryParams = buildString {
+            append("?medium=bancolombia")
+            holderUrn?.let { append("&holder_urn=$it") }
+            params.urn?.let { append("&urn=$it") }
+            params.status?.let { append("&status=$it") }
+        }
+
+        val response = httpClient.get<BancolombiaListResponse>(
+            path = "/api/accounts$queryParams"
+        )
+
+        return response.accounts.map { account -> mapAccountResponse(account) }
+    }
+
+    /**
+     * Get a bancolombia account by URN
+     *
+     * @param urn Account URN
+     * @return The bancolombia account
+     */
+    fun get(urn: String): BancolombiaAccount {
+        val accounts = list(ListBancolombiaParams(urn = urn))
+        return accounts.firstOrNull()
+            ?: throw RuntimeException("Account not found. URN: $urn")
+    }
+
+    /**
+     * Private method to poll account status until it becomes active
+     */
+    private fun waitForActiveStatus(urn: String, timeout: Long): BancolombiaAccount {
+        val startTime = System.currentTimeMillis()
+        val pollingInterval = 2000L // 2 seconds
+
+        while (true) {
+            if (System.currentTimeMillis() - startTime > timeout) {
+                throw RuntimeException("Timeout waiting for account to become active. URN: $urn")
+            }
+
+            val result = list(ListBancolombiaParams(urn = urn))
+            val account = result.firstOrNull()
+                ?: throw RuntimeException("Account not found. URN: $urn")
+
+            if (account.status == "active") {
+                return account
+            }
+
+            if (account.status == "creation_failed") {
+                throw RuntimeException("Account creation failed. URN: $urn")
+            }
+
+            Thread.sleep(pollingInterval)
+        }
     }
 
     /**

@@ -2,6 +2,8 @@ package app.bloque.sdk.accounts
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 
 // ============================================
 // Request Models
@@ -12,7 +14,7 @@ data class CreateAccountRequest(
     @SerialName("holder_urn") val holderUrn: String,
     @SerialName("webhook_url") val webhookUrl: String? = null,
     @SerialName("ledger_account_id") val ledgerAccountId: String? = null,
-    val input: Map<String, String> = emptyMap(),
+    val input: JsonElement? = null,
     val metadata: Map<String, String?> = emptyMap()
 )
 
@@ -77,7 +79,13 @@ data class CreateBancolombiaAccountParams @JvmOverloads constructor(
     val holderUrn: String? = null,
     val webhookUrl: String? = null,
     val ledgerId: String? = null,
-    val metadata: Map<String, String?> = emptyMap()
+    val metadata: Map<String, String?>? = null
+)
+
+data class ListBancolombiaParams @JvmOverloads constructor(
+    val urn: String? = null,
+    val holderUrn: String? = null,
+    val status: String? = null
 )
 
 // ============================================
@@ -86,18 +94,19 @@ data class CreateBancolombiaAccountParams @JvmOverloads constructor(
 
 @Serializable
 data class CardDetails(
-    @SerialName("card_number") val cardNumber: String? = null,
-    @SerialName("card_holder") val cardHolder: String? = null,
-    @SerialName("expiry_date") val expiryDate: String? = null,
-    val cvv: String? = null
+    @SerialName("card_last_four") val lastFour: String? = null,
+    @SerialName("card_product_type") val productType: String? = null,
+    @SerialName("card_type") val cardType: String? = null,
+    @SerialName("card_url_details") val detailsUrl: String? = null
 )
 
 data class CardAccount @JvmOverloads constructor(
     val urn: String,
     val id: String,
-    val cardNumber: String?,
-    val cardHolder: String?,
-    val expiryDate: String?,
+    val lastFour: String?,
+    val productType: String?,
+    val cardType: String?,
+    val detailsUrl: String?,
     val status: String,
     val ownerUrn: String,
     val ledgerId: String? = null,
@@ -112,10 +121,11 @@ data class CreateCardAccountParams @JvmOverloads constructor(
     val holderUrn: String? = null,
     val webhookUrl: String? = null,
     val ledgerId: String? = null,
-    val metadata: Map<String, String?> = emptyMap()
+    val metadata: Map<String, String?>? = null
 )
 
 data class ListCardParams @JvmOverloads constructor(
+    val urn: String? = null,
     val holderUrn: String? = null,
     val status: String? = null
 )
@@ -131,15 +141,15 @@ data class UpdateCardMetadataParams @JvmOverloads constructor(
 
 @Serializable
 data class VirtualDetails(
-    @SerialName("account_number") val accountNumber: String? = null,
-    @SerialName("routing_number") val routingNumber: String? = null
+    @SerialName("first_name") val firstName: String? = null,
+    @SerialName("last_name") val lastName: String? = null
 )
 
 data class VirtualAccount @JvmOverloads constructor(
     val urn: String,
     val id: String,
-    val accountNumber: String?,
-    val routingNumber: String?,
+    val firstName: String?,
+    val lastName: String?,
     val status: String,
     val ownerUrn: String,
     val ledgerId: String? = null,
@@ -154,12 +164,28 @@ data class CreateVirtualAccountParams @JvmOverloads constructor(
     val holderUrn: String? = null,
     val webhookUrl: String? = null,
     val ledgerId: String? = null,
-    val metadata: Map<String, String?> = emptyMap()
+    val metadata: Map<String, String?>? = null
+)
+
+data class ListVirtualParams @JvmOverloads constructor(
+    val urn: String? = null,
+    val holderUrn: String? = null,
+    val status: String? = null
 )
 
 data class UpdateVirtualMetadataParams @JvmOverloads constructor(
     val urn: String,
     val metadata: Map<String, String?>
+)
+
+/**
+ * Options for account creation with optional wait for ledger
+ */
+data class CreateAccountOptions @JvmOverloads constructor(
+    /** Whether to wait for the account to become active and have a ledger assigned */
+    val waitLedger: Boolean = false,
+    /** Timeout in milliseconds for waiting (default: 60000ms = 60 seconds) */
+    val timeout: Long = 60000L
 )
 
 // ============================================
@@ -168,13 +194,15 @@ data class UpdateVirtualMetadataParams @JvmOverloads constructor(
 
 @Serializable
 data class PolygonDetails(
-    @SerialName("wallet_address") val walletAddress: String? = null
+    val address: String? = null,
+    val network: String? = null
 )
 
 data class PolygonAccount @JvmOverloads constructor(
     val urn: String,
     val id: String,
-    val walletAddress: String?,
+    val address: String?,
+    val network: String?,
     val status: String,
     val ownerUrn: String,
     val ledgerId: String? = null,
@@ -189,12 +217,18 @@ data class CreatePolygonAccountParams @JvmOverloads constructor(
     val holderUrn: String? = null,
     val webhookUrl: String? = null,
     val ledgerId: String? = null,
-    val metadata: Map<String, String?> = emptyMap()
+    val metadata: Map<String, String?>? = null
 )
 
 data class UpdatePolygonMetadataParams @JvmOverloads constructor(
     val urn: String,
     val metadata: Map<String, String?>
+)
+
+data class ListPolygonParams @JvmOverloads constructor(
+    val urn: String? = null,
+    val holderUrn: String? = null,
+    val status: String? = null
 )
 
 data class UpdateBancolombiaMetadataParams @JvmOverloads constructor(

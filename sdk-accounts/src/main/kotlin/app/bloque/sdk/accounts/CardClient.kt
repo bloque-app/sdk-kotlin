@@ -4,6 +4,8 @@ import app.bloque.sdk.core.BaseClient
 import app.bloque.sdk.core.BloqueHttpClient
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
  * Client for Card account operations
@@ -16,19 +18,41 @@ class CardClient constructor(
      * Create a new Card account
      *
      * @param params Optional parameters for account creation
+     * @param options Optional settings to wait for account activation
      * @return The created CardAccount
+     *
+     * Example usage:
+     * ```kotlin
+     * // Create without waiting
+     * val account = session.accounts.card.create(
+     *     CreateCardAccountParams(name = "My Card")
+     * )
+     *
+     * // Create and wait for active status with ledger
+     * val account = session.accounts.card.create(
+     *     CreateCardAccountParams(name = "My Card"),
+     *     CreateAccountOptions(waitLedger = true)
+     * )
+     * ```
      */
     @JvmOverloads
-    fun create(params: CreateCardAccountParams = CreateCardAccountParams()): CardAccount {
+    fun create(
+        params: CreateCardAccountParams = CreateCardAccountParams(),
+        options: CreateAccountOptions? = null
+    ): CardAccount {
         val request = CreateAccountRequest(
             holderUrn = params.holderUrn ?: httpClient.getUrn() ?: "",
             webhookUrl = params.webhookUrl,
             ledgerAccountId = params.ledgerId,
-            input = emptyMap(),
+            input = buildJsonObject {
+                put("create", buildJsonObject {
+                    put("card_type", "VIRTUAL")
+                })
+            },
             metadata = buildMap {
                 put("source", "sdk-kotlin")
                 params.name?.let { put("name", it) }
-                putAll(params.metadata)
+                params.metadata?.let { putAll(it) }
             }
         )
 
@@ -37,7 +61,13 @@ class CardClient constructor(
             body = request
         )
 
-        return mapAccountResponse(response.result.account)
+        val account = mapAccountResponse(response.result.account)
+
+        if (options?.waitLedger == true) {
+            return waitForActiveStatus(account.urn, options.timeout)
+        }
+
+        return account
     }
 
     /**
@@ -49,22 +79,62 @@ class CardClient constructor(
     @JvmOverloads
     fun list(params: ListCardParams = ListCardParams()): List<CardAccount> {
         @Serializable
-        data class CardListResult(val accounts: List<AccountData<CardDetails>>)
+        data class CardListResponse(val accounts: List<AccountData<CardDetails>>)
 
-        @Serializable
-        data class CardListResponse(val result: CardListResult)
+        val holderUrn = params.holderUrn ?: httpClient.getUrn()
 
         val queryParams = buildString {
-            append("?")
-            params.holderUrn?.let { append("holder_urn=$it&") }
-            params.status?.let { append("status=$it&") }
-        }.removeSuffix("&")
+            append("?medium=card")
+            holderUrn?.let { append("&holder_urn=$it") }
+            params.urn?.let { append("&urn=$it") }
+            params.status?.let { append("&status=$it") }
+        }
 
         val response = httpClient.get<CardListResponse>(
-            path = "/api/mediums/card/accounts$queryParams"
+            path = "/api/accounts$queryParams"
         )
 
-        return response.result.accounts.map { account -> mapAccountResponse(account) }
+        return response.accounts.map { account -> mapAccountResponse(account) }
+    }
+
+    /**
+     * Get a card account by URN
+     *
+     * @param urn Account URN
+     * @return The card account
+     */
+    fun get(urn: String): CardAccount {
+        val accounts = list(ListCardParams(urn = urn))
+        return accounts.firstOrNull()
+            ?: throw RuntimeException("Account not found. URN: $urn")
+    }
+
+    /**
+     * Private method to poll account status until it becomes active
+     */
+    private fun waitForActiveStatus(urn: String, timeout: Long): CardAccount {
+        val startTime = System.currentTimeMillis()
+        val pollingInterval = 2000L // 2 seconds
+
+        while (true) {
+            if (System.currentTimeMillis() - startTime > timeout) {
+                throw RuntimeException("Timeout waiting for account to become active. URN: $urn")
+            }
+
+            val result = list(ListCardParams(urn = urn))
+            val account = result.firstOrNull()
+                ?: throw RuntimeException("Account not found. URN: $urn")
+
+            if (account.status == "active") {
+                return account
+            }
+
+            if (account.status == "creation_failed") {
+                throw RuntimeException("Account creation failed. URN: $urn")
+            }
+
+            Thread.sleep(pollingInterval)
+        }
     }
 
     /**
@@ -209,9 +279,10 @@ class CardClient constructor(
         return CardAccount(
             urn = account.urn,
             id = account.id,
-            cardNumber = account.details.cardNumber,
-            cardHolder = account.details.cardHolder,
-            expiryDate = account.details.expiryDate,
+            lastFour = account.details.lastFour,
+            productType = account.details.productType,
+            cardType = account.details.cardType,
+            detailsUrl = account.details.detailsUrl,
             status = account.status,
             ownerUrn = account.ownerUrn,
             ledgerId = account.ledgerAccountId,

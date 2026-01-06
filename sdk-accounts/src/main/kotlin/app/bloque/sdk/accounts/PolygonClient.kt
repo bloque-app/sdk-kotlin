@@ -16,19 +16,37 @@ class PolygonClient constructor(
      * Create a new Polygon wallet account
      *
      * @param params Optional parameters for account creation
+     * @param options Optional settings to wait for account activation
      * @return The created PolygonAccount
+     *
+     * Example usage:
+     * ```kotlin
+     * // Create without waiting
+     * val account = session.accounts.polygon.create(
+     *     CreatePolygonAccountParams(name = "My Wallet")
+     * )
+     *
+     * // Create and wait for active status with ledger
+     * val account = session.accounts.polygon.create(
+     *     CreatePolygonAccountParams(name = "My Wallet"),
+     *     CreateAccountOptions(waitLedger = true)
+     * )
+     * ```
      */
     @JvmOverloads
-    fun create(params: CreatePolygonAccountParams = CreatePolygonAccountParams()): PolygonAccount {
+    fun create(
+        params: CreatePolygonAccountParams = CreatePolygonAccountParams(),
+        options: CreateAccountOptions? = null
+    ): PolygonAccount {
         val request = CreateAccountRequest(
             holderUrn = params.holderUrn ?: httpClient.getUrn() ?: "",
             webhookUrl = params.webhookUrl,
             ledgerAccountId = params.ledgerId,
-            input = emptyMap(),
+            input = null,
             metadata = buildMap {
                 put("source", "sdk-kotlin")
                 params.name?.let { put("name", it) }
-                putAll(params.metadata)
+                params.metadata?.let { putAll(it) }
             }
         )
 
@@ -37,7 +55,80 @@ class PolygonClient constructor(
             body = request
         )
 
-        return mapAccountResponse(response.result.account)
+        val account = mapAccountResponse(response.result.account)
+
+        if (options?.waitLedger == true) {
+            return waitForActiveStatus(account.urn, options.timeout)
+        }
+
+        return account
+    }
+
+    /**
+     * List polygon accounts
+     *
+     * @param params Optional filter parameters
+     * @return List of polygon accounts
+     */
+    @JvmOverloads
+    fun list(params: ListPolygonParams = ListPolygonParams()): List<PolygonAccount> {
+        @Serializable
+        data class PolygonListResponse(val accounts: List<AccountData<PolygonDetails>>)
+
+        val holderUrn = params.holderUrn ?: httpClient.getUrn()
+
+        val queryParams = buildString {
+            append("?medium=polygon")
+            holderUrn?.let { append("&holder_urn=$it") }
+            params.urn?.let { append("&urn=$it") }
+            params.status?.let { append("&status=$it") }
+        }
+
+        val response = httpClient.get<PolygonListResponse>(
+            path = "/api/accounts$queryParams"
+        )
+
+        return response.accounts.map { account -> mapAccountResponse(account) }
+    }
+
+    /**
+     * Get a polygon account by URN
+     *
+     * @param urn Account URN
+     * @return The polygon account
+     */
+    fun get(urn: String): PolygonAccount {
+        val accounts = list(ListPolygonParams(urn = urn))
+        return accounts.firstOrNull()
+            ?: throw RuntimeException("Account not found. URN: $urn")
+    }
+
+    /**
+     * Private method to poll account status until it becomes active
+     */
+    private fun waitForActiveStatus(urn: String, timeout: Long): PolygonAccount {
+        val startTime = System.currentTimeMillis()
+        val pollingInterval = 2000L // 2 seconds
+
+        while (true) {
+            if (System.currentTimeMillis() - startTime > timeout) {
+                throw RuntimeException("Timeout waiting for account to become active. URN: $urn")
+            }
+
+            val result = list(ListPolygonParams(urn = urn))
+            val account = result.firstOrNull()
+                ?: throw RuntimeException("Account not found. URN: $urn")
+
+            if (account.status == "active") {
+                return account
+            }
+
+            if (account.status == "creation_failed") {
+                throw RuntimeException("Account creation failed. URN: $urn")
+            }
+
+            Thread.sleep(pollingInterval)
+        }
     }
 
     /**
@@ -116,7 +207,8 @@ class PolygonClient constructor(
         return PolygonAccount(
             urn = account.urn,
             id = account.id,
-            walletAddress = account.details.walletAddress,
+            address = account.details.address,
+            network = account.details.network,
             status = account.status,
             ownerUrn = account.ownerUrn,
             ledgerId = account.ledgerAccountId,

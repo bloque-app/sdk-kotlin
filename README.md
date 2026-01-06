@@ -173,8 +173,11 @@ This SDK is a complete port of the TypeScript SDK with 100% feature parity:
 ## 📖 Detailed Examples
 
 Check out the comprehensive examples:
-- [Kotlin Examples](examples/kotlin/KotlinExample.kt) - Idiomatic Kotlin usage
-- [Java Examples](examples/java/JavaExample.java) - Java-friendly patterns
+- [Kotlin Examples](examples/kotlin/KotlinExample.kt) - Idiomatic Kotlin usage with all features
+- [Java Examples](examples/java/JavaExample.java) - Java-friendly patterns and usage
+- [Shared Ledger Example (Kotlin)](examples/kotlin/SharedLedgerExample.kt) - Linking multiple accounts to the same ledger
+- [Shared Ledger Example (Java)](examples/java/SharedLedgerExample.java) - Linking multiple accounts to the same ledger
+- [Ledger Explanation](examples/LEDGER_EXPLANATION.md) - Understanding ledgers, accounts, and use cases
 
 ### Account Management
 
@@ -201,6 +204,29 @@ val transfer = session.accounts.transfer(
         asset = SupportedAsset.DUSD_6
     )
 )
+```
+
+### Shared Ledger (Multiple Accounts, Same Balance)
+
+```kotlin
+// Create virtual account (creates a new ledger)
+val virtualAccount = session.accounts.virtual.create(
+    CreateVirtualAccountParams(name = "Main Account")
+)
+
+// Get the ledger ID
+val sharedLedgerId = virtualAccount.ledgerId!!
+
+// Create card linked to the SAME ledger
+val cardAccount = session.accounts.card.create(
+    CreateCardAccountParams(
+        name = "My Card",
+        ledgerId = sharedLedgerId  // Share balance with virtual account
+    )
+)
+
+// Both accounts now share the same balance!
+// Transfers between them are instant
 ```
 
 ### Identity & Registration
