@@ -19,13 +19,12 @@ Official Bloque SDK for Kotlin and Java applications.
 ```kotlin
 // build.gradle.kts
 repositories {
-    mavenLocal()  // For local development
     mavenCentral()
 }
 
 dependencies {
     // You only need the main module
-    implementation("app.bloque.sdk:sdk:0.1.0-SNAPSHOT")
+    implementation("app.bloque.sdk:sdk:0.0.1")
 }
 ```
 
@@ -34,12 +33,11 @@ dependencies {
 ```groovy
 // build.gradle
 repositories {
-    mavenLocal()
     mavenCentral()
 }
 
 dependencies {
-    implementation 'app.bloque.sdk:sdk:0.1.0-SNAPSHOT'
+    implementation 'app.bloque.sdk:sdk:0.0.1'
 }
 ```
 
@@ -47,18 +45,11 @@ dependencies {
 
 ```xml
 <!-- pom.xml -->
-<repositories>
-    <repository>
-        <id>local</id>
-        <url>file://${user.home}/.m2/repository</url>
-    </repository>
-</repositories>
-
 <dependencies>
     <dependency>
         <groupId>app.bloque.sdk</groupId>
         <artifactId>sdk</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>0.0.1</version>
     </dependency>
 </dependencies>
 ```
@@ -243,9 +234,7 @@ val userProfile = UserProfile(
 val session = bloque.register(
     alias = "+1234567890",
     params = IndividualRegisterParams(
-        profile = userProfile,
-        alias = "+1234567890",
-        origin = "my-app"
+        profile = userProfile
     )
 )
 ```

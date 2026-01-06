@@ -130,7 +130,7 @@ data class ListCardParams @JvmOverloads constructor(
     val status: String? = null
 )
 
-data class UpdateCardMetadataParams @JvmOverloads constructor(
+data class UpdateCardMetadataParams constructor(
     val urn: String,
     val metadata: Map<String, String?>
 )
@@ -173,7 +173,7 @@ data class ListVirtualParams @JvmOverloads constructor(
     val status: String? = null
 )
 
-data class UpdateVirtualMetadataParams @JvmOverloads constructor(
+data class UpdateVirtualMetadataParams constructor(
     val urn: String,
     val metadata: Map<String, String?>
 )
@@ -220,7 +220,7 @@ data class CreatePolygonAccountParams @JvmOverloads constructor(
     val metadata: Map<String, String?>? = null
 )
 
-data class UpdatePolygonMetadataParams @JvmOverloads constructor(
+data class UpdatePolygonMetadataParams constructor(
     val urn: String,
     val metadata: Map<String, String?>
 )
@@ -231,7 +231,7 @@ data class ListPolygonParams @JvmOverloads constructor(
     val status: String? = null
 )
 
-data class UpdateBancolombiaMetadataParams @JvmOverloads constructor(
+data class UpdateBancolombiaMetadataParams constructor(
     val urn: String,
     val metadata: Map<String, String?>
 )
@@ -287,7 +287,7 @@ internal data class TransferResponseWrapper(
     val result: TransferResponseData
 )
 
-data class TransferResult @JvmOverloads constructor(
+data class TransferResult constructor(
     val queueId: String,
     val status: String,
     val message: String
@@ -297,7 +297,7 @@ data class TransferResult @JvmOverloads constructor(
 // Balance and Movement Models
 // ============================================
 
-data class TokenBalance @JvmOverloads constructor(
+data class TokenBalance constructor(
     val current: String,
     val pending: String,
     val `in`: String,

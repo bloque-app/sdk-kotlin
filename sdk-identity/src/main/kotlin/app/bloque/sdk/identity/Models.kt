@@ -53,12 +53,12 @@ data class OTPAssertionEmail(
     val code: String
 ) : OTPAssertion
 
-data class SigningChallengeValue @JvmOverloads constructor(
+data class SigningChallengeValue constructor(
     val signature: String,
     val alias: String
 )
 
-data class ApiKeyValue @JvmOverloads constructor(
+data class ApiKeyValue constructor(
     val apiKey: String,
     val alias: String
 )
@@ -76,6 +76,7 @@ data class UserProfile @JvmOverloads constructor(
     val birthdate: String? = null,
     val email: String? = null,
     val phone: String? = null,
+    val gender: String? = null,
     val nationality: String? = null,
     val countryOfResidence: String? = null,
     val addressLine1: String? = null,
@@ -120,23 +121,25 @@ data class BusinessProfile @JvmOverloads constructor(
  */
 sealed class RegisterParams {
     abstract val profile: Any
-    abstract val alias: String
-    abstract val origin: String
-    abstract val metadata: Map<String, String?>
+    abstract val metadata: Map<String, String?>?
+    var alias: String = ""
+    var origin: String = ""
+
+    // Helper method for SDK to set both values
+    fun setOriginData(alias: String, origin: String) {
+        this.alias = alias
+        this.origin = origin
+    }
 }
 
 data class IndividualRegisterParams @JvmOverloads constructor(
     override val profile: UserProfile,
-    override val alias: String,
-    override val origin: String,
-    override val metadata: Map<String, String?> = emptyMap()
+    override val metadata: Map<String, String?>? = null
 ) : RegisterParams()
 
 data class BusinessRegisterParams @JvmOverloads constructor(
     override val profile: BusinessProfile,
-    override val alias: String,
-    override val origin: String,
-    override val metadata: Map<String, String?> = emptyMap()
+    override val metadata: Map<String, String?>? = null
 ) : RegisterParams()
 
 // ============================================
@@ -144,12 +147,24 @@ data class BusinessRegisterParams @JvmOverloads constructor(
 // ============================================
 
 @Serializable
-internal data class RegisterRequestWire(
-    val profile: Map<String, String?>,
-    @SerialName("org_type") val orgType: String,
+internal data class AssertionResultValueWire(
+    @SerialName("api_key") val apiKey: String,
+    val alias: String
+)
+
+@Serializable
+internal data class AssertionResultWireRequest(
     val alias: String,
-    val origin: String,
-    val metadata: Map<String, String?> = emptyMap()
+    val challengeType: String,
+    val value: AssertionResultValueWire
+)
+
+@Serializable
+internal data class RegisterRequestWire(
+    @SerialName("assertion_result") val assertionResult: AssertionResultWireRequest,
+    @SerialName("extra_context") val extraContext: Map<String, String?> = emptyMap(),
+    val type: String,
+    val profile: Map<String, String?>
 )
 
 @Serializable
@@ -166,7 +181,7 @@ internal data class RegisterResultWire(
 /**
  * Result of registration
  */
-data class RegisterResult @JvmOverloads constructor(
+data class RegisterResult constructor(
     val urn: String,
     val accessToken: String
 )
@@ -233,7 +248,7 @@ internal data class AssertionResultWire(
 /**
  * Result of assertion request
  */
-data class AssertionResult @JvmOverloads constructor(
+data class AssertionResult constructor(
     val challengeType: ChallengeType,
     val value: Map<String, String>
 )

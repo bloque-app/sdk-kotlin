@@ -47,38 +47,38 @@ class OriginsClient constructor(
      * Register a new identity
      *
      * @param params Registration parameters (individual or business)
+     * @param apiKey API key for authentication
      * @return Registration result with URN and access token
      */
-    fun register(params: RegisterParams): RegisterResult {
+    fun register(params: RegisterParams, apiKey: String): RegisterResult {
         val profileMap = when (params) {
             is IndividualRegisterParams -> {
                 val profile = params.profile
                 buildMap<String, String?> {
-                    put("org_type", "individual")
                     profile.firstName?.let { put("first_name", it) }
                     profile.lastName?.let { put("last_name", it) }
                     profile.birthdate?.let { put("birthdate", it) }
                     profile.email?.let { put("email", it) }
                     profile.phone?.let { put("phone", it) }
                     profile.nationality?.let { put("nationality", it) }
-                    profile.countryOfResidence?.let { put("country_of_residence", it) }
+                    profile.countryOfResidence?.let { put("country_of_residence_code", it) }
                     profile.addressLine1?.let { put("address_line1", it) }
                     profile.addressLine2?.let { put("address_line2", it) }
                     profile.city?.let { put("city", it) }
                     profile.state?.let { put("state", it) }
                     profile.postalCode?.let { put("postal_code", it) }
-                    profile.country?.let { put("country", it) }
-                    profile.documentType?.let { put("document_type", it) }
-                    profile.documentNumber?.let { put("document_number", it) }
+                    profile.country?.let { put("country_of_birth_code", it) }
+                    profile.documentType?.let { put("personal_id_type", it) }
+                    profile.documentNumber?.let { put("personal_id_number", it) }
                     profile.documentIssueDate?.let { put("document_issue_date", it) }
                     profile.documentExpiryDate?.let { put("document_expiry_date", it) }
+                    profile.gender?.let { put("gender", it) }
                 }
             }
 
             is BusinessRegisterParams -> {
                 val profile = params.profile
                 buildMap<String, String?> {
-                    put("org_type", "business")
                     put("legal_name", profile.legalName)
                     put("tax_id", profile.taxId)
                     put("incorporation_date", profile.incorporationDate)
@@ -98,17 +98,25 @@ class OriginsClient constructor(
             }
         }
 
-        val orgType = when (params) {
+        val type = when (params) {
             is IndividualRegisterParams -> "individual"
             is BusinessRegisterParams -> "business"
         }
 
-        val request = RegisterRequestWire(
-            profile = profileMap,
-            orgType = orgType,
+        val assertionResult = AssertionResultWireRequest(
             alias = params.alias,
-            origin = params.origin,
-            metadata = params.metadata
+            challengeType = "API_KEY",
+            value = AssertionResultValueWire(
+                apiKey = apiKey,
+                alias = params.alias
+            )
+        )
+
+        val request = RegisterRequestWire(
+            assertionResult = assertionResult,
+            extraContext = params.metadata ?: emptyMap(),
+            type = type,
+            profile = profileMap
         )
 
         val response = httpClient.post<RegisterResponseWire, RegisterRequestWire>(

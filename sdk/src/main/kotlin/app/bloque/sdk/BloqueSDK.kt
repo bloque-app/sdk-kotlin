@@ -53,19 +53,10 @@ class BloqueSDK private constructor(
     fun register(alias: String, params: RegisterParams): UserSession {
         val originsClient = OriginsClient(httpClient)
 
-        // Create params with alias and origin from config
-        val registerParams = when (params) {
-            is IndividualRegisterParams -> params.copy(
-                alias = alias,
-                origin = config.origin
-            )
-            is BusinessRegisterParams -> params.copy(
-                alias = alias,
-                origin = config.origin
-            )
-        }
+        // Set alias and origin from SDK config
+        params.setOriginData(alias, config.origin)
 
-        val result = originsClient.register(registerParams)
+        val result = originsClient.register(params, config.apiKey)
 
         httpClient.updateAccessToken(result.accessToken)
         httpClient.updateUrn(result.urn)

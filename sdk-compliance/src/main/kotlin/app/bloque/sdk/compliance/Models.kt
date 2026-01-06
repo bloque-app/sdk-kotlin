@@ -32,7 +32,7 @@ data class KycVerificationParams @JvmOverloads constructor(
 /**
  * Parameters for getting KYC verification status
  */
-data class GetKycVerificationParams @JvmOverloads constructor(
+data class GetKycVerificationParams constructor(
     val urn: String
 )
 
