@@ -1,14 +1,14 @@
 name: Publish package to the Maven Central Repository
 
 on:
-  release:
-    types: [created]
+  push:
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       version:
         description: 'Version to publish (e.g., 0.0.1)'
         required: true
-        type: string
 
 jobs:
   publish:
@@ -24,15 +24,23 @@ jobs:
           distribution: 'temurin'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Update version if manually triggered
+      - name: Update version from tag
+        if: github.event_name == 'push'
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          sed -i "s/version = \".*\"/version = \"$VERSION\"/" build.gradle.kts
+
+      - name: Update version (manual trigger)
         if: github.event_name == 'workflow_dispatch'
         run: |
-          sed -i 's/version = ".*"/version = "${{ github.event.inputs.version }}"/' build.gradle.kts
+          sed -i "s/version = \".*\"/version = \"${{ github.event.inputs.version }}\"/" build.gradle.kts
 
       - name: Publish package
-        run: ./gradlew publish
+        run: ./gradlew publishAllPublicationsToMavenCentralRepository --no-configuration-cache
         env:
-          MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-          MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.OSSRH_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.OSSRH_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_SIGNING_PASSWORD }}
