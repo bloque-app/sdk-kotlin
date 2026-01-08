@@ -38,15 +38,14 @@ class AccountsClient constructor(
      */
     fun transfer(params: TransferParams): TransferResult {
         val request = TransferRequest(
-            sourceUrn = params.sourceUrn,
-            destinationUrn = params.destinationUrn,
+            destinationAccountUrn = params.destinationUrn,
             amount = params.amount,
             asset = params.asset.value,
-            metadata = params.metadata.mapValues { it.value.toString() }
+            metadata = params.metadata?.mapValues { it.value.toString() } ?: emptyMap()
         )
 
         val response = httpClient.post<TransferResponseWrapper, TransferRequest>(
-            path = "/api/transfers",
+            path = "/api/accounts/${params.sourceUrn}/transfer",
             body = request
         )
 

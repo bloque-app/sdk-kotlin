@@ -263,13 +263,12 @@ data class TransferParams @JvmOverloads constructor(
     val destinationUrn: String,
     val amount: String,
     val asset: SupportedAsset,
-    val metadata: Map<String, Any?> = emptyMap()
+    val metadata: Map<String, Any?>? = null
 )
 
 @Serializable
 internal data class TransferRequest(
-    @SerialName("source_urn") val sourceUrn: String,
-    @SerialName("destination_urn") val destinationUrn: String,
+    @SerialName("destination_account_urn") val destinationAccountUrn: String,
     val amount: String,
     val asset: String,
     val metadata: Map<String, String> = emptyMap()
