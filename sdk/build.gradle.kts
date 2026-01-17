@@ -9,4 +9,5 @@ dependencies {
     api(project(":sdk-identity"))
     api(project(":sdk-compliance"))
     api(project(":sdk-orgs"))
+    api(project(":sdk-swap"))
 }
