@@ -55,7 +55,7 @@ public class RegisterExample {
         );
 
         System.out.println("User registered successfully!");
-        System.out.println("User URN: " + session.getUserUrn());
+        System.out.println("User URN: " + session.getUrn());
 
         // ============================================
         // Example 2: List user's virtual accounts
@@ -122,6 +122,6 @@ public class RegisterExample {
         );
 
         System.out.println("Business registered successfully!");
-        System.out.println("Business URN: " + businessSession.getUserUrn());
+        System.out.println("Business URN: " + businessSession.getUrn());
     }
 }

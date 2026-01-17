@@ -5,6 +5,7 @@ import app.bloque.sdk.compliance.ComplianceClient
 import app.bloque.sdk.core.BloqueHttpClient
 import app.bloque.sdk.identity.IdentityClient
 import app.bloque.sdk.orgs.OrgsClient
+import app.bloque.sdk.swap.SwapClient
 
 /**
  * User session after successful connection
@@ -32,6 +33,11 @@ class UserSession internal constructor(
      * Organization operations
      */
     val orgs: OrgsClient = OrgsClient(httpClient)
+
+    /**
+     * Swap operations (rates, PSE banks)
+     */
+    val swap: SwapClient = SwapClient(httpClient)
 
     /**
      * Get the current user URN
