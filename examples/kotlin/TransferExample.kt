@@ -127,9 +127,31 @@ fun main() {
     }
 
     // ============================================
-    // Example 6: Functional approach with result handling
+    // Example 6: Get account movements
     // ============================================
-    println("\n=== Example 6: Functional Approach ===")
+    println("\n=== Example 6: Get Account Movements ===")
+
+    // Get movements for any account using the generic movements method
+    val movements = session.accounts.movements(
+        ListMovementsParams(
+            urn = cardAccount.urn,
+            limit = 10
+        )
+    )
+
+    println("Found ${movements.size} movements:")
+    movements.forEach { movement ->
+        println("  - ID: ${movement.id}")
+        println("    Amount: ${movement.amount} ${movement.asset}")
+        println("    Direction: ${movement.direction}")
+        println("    Reference: ${movement.reference}")
+        println("    Date: ${movement.createdAt}")
+    }
+
+    // ============================================
+    // Example 7: Functional approach with result handling
+    // ============================================
+    println("\n=== Example 7: Functional Approach ===")
 
     // Using Kotlin's scope functions for cleaner code
     session.accounts.transfer(

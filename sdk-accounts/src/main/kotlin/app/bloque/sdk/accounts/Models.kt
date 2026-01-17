@@ -323,7 +323,7 @@ data class ListMovementsParams @JvmOverloads constructor(
 )
 
 @Serializable
-data class CardMovement(
+data class Movement(
     val id: String,
     val amount: String,
     val asset: String,
@@ -334,3 +334,8 @@ data class CardMovement(
     @SerialName("rail_name") val railName: String,
     @SerialName("created_at") val createdAt: String
 )
+
+/**
+ * Alias for backward compatibility
+ */
+typealias CardMovement = Movement
