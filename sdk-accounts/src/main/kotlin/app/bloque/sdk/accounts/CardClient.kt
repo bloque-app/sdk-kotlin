@@ -226,20 +226,24 @@ class CardClient constructor(
      * @param params Parameters with URN and pagination
      * @return List of movements
      */
-    fun movements(params: ListMovementsParams): List<CardMovement> {
+    fun movements(params: ListMovementsParams): List<Movement> {
         @Serializable
-        data class CardMovementsResult(val movements: List<CardMovement>)
+        data class MovementsResult(val movements: List<Movement>)
 
         @Serializable
-        data class CardMovementsResponse(val result: CardMovementsResult)
+        data class MovementsResponse(val result: MovementsResult)
 
         val queryParams = buildString {
-            append("?")
-            params.limit?.let { append("limit=$it&") }
-            params.offset?.let { append("offset=$it&") }
-        }.removeSuffix("&")
+            val parts = mutableListOf<String>()
+            params.limit?.let { parts.add("limit=$it") }
+            params.offset?.let { parts.add("offset=$it") }
+            if (parts.isNotEmpty()) {
+                append("?")
+                append(parts.joinToString("&"))
+            }
+        }
 
-        val response = httpClient.get<CardMovementsResponse>(
+        val response = httpClient.get<MovementsResponse>(
             path = "/api/accounts/${params.urn}/movements$queryParams"
         )
 

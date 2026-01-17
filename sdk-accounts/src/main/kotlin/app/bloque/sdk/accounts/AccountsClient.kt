@@ -2,6 +2,7 @@ package app.bloque.sdk.accounts
 
 import app.bloque.sdk.core.BaseClient
 import app.bloque.sdk.core.BloqueHttpClient
+import kotlinx.serialization.Serializable
 
 /**
  * Main client for all account operations
@@ -54,5 +55,38 @@ class AccountsClient constructor(
             status = response.result.status,
             message = response.result.message
         )
+    }
+
+    /**
+     * Get account movements/transactions
+     *
+     * Works with any account type (card, virtual, bancolombia, polygon).
+     * See: https://api.bloque.app/docs/mediums#tag/accounts/GET/api/accounts/{urn}/movements
+     *
+     * @param params Parameters with account URN and optional pagination
+     * @return List of movements
+     */
+    fun movements(params: ListMovementsParams): List<Movement> {
+        @Serializable
+        data class MovementsResult(val movements: List<Movement>)
+
+        @Serializable
+        data class MovementsResponse(val result: MovementsResult)
+
+        val queryParams = buildString {
+            val parts = mutableListOf<String>()
+            params.limit?.let { parts.add("limit=$it") }
+            params.offset?.let { parts.add("offset=$it") }
+            if (parts.isNotEmpty()) {
+                append("?")
+                append(parts.joinToString("&"))
+            }
+        }
+
+        val response = httpClient.get<MovementsResponse>(
+            path = "/api/accounts/${params.urn}/movements$queryParams"
+        )
+
+        return response.result.movements
     }
 }
