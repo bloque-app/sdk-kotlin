@@ -52,6 +52,13 @@ class OriginsClient constructor(
      */
     fun register(params: RegisterParams, apiKey: String): RegisterResult {
         val profileMap = when (params) {
+            is BasicIndividualRegisterParams -> {
+                val profile = params.profile
+                buildMap<String, String?> {
+                    put("phone", profile.phoneNumber)
+                }
+            }
+
             is IndividualRegisterParams -> {
                 val profile = params.profile
                 buildMap<String, String?> {
@@ -73,6 +80,20 @@ class OriginsClient constructor(
                     profile.documentIssueDate?.let { put("document_issue_date", it) }
                     profile.documentExpiryDate?.let { put("document_expiry_date", it) }
                     profile.gender?.let { put("gender", it) }
+                }
+            }
+
+            is BasicBusinessRegisterParams -> {
+                val profile = params.profile
+                buildMap<String, String?> {
+                    put("name", profile.name)
+                    put("legal_name", profile.legalName)
+                    put("tax_id", profile.taxId)
+                    put("business_type", profile.businessType.name)
+                    put("email", profile.email)
+                    put("incorporation_date", profile.incorporationDate)
+                    put("country", profile.country)
+                    profile.phone?.let { put("phone", it) }
                 }
             }
 
@@ -99,8 +120,8 @@ class OriginsClient constructor(
         }
 
         val type = when (params) {
-            is IndividualRegisterParams -> "individual"
-            is BusinessRegisterParams -> "business"
+            is BasicIndividualRegisterParams, is IndividualRegisterParams -> "individual"
+            is BasicBusinessRegisterParams, is BusinessRegisterParams -> "business"
         }
 
         val assertionResult = AssertionResultWireRequest(

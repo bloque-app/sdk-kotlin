@@ -68,6 +68,13 @@ data class ApiKeyValue constructor(
 // ============================================
 
 /**
+ * Basic user profile for minimal registration (only phone required)
+ */
+data class BasicUserProfile(
+    val phoneNumber: String
+)
+
+/**
  * User profile for individual accounts (KYC)
  */
 data class UserProfile @JvmOverloads constructor(
@@ -89,6 +96,33 @@ data class UserProfile @JvmOverloads constructor(
     val documentNumber: String? = null,
     val documentIssueDate: String? = null,
     val documentExpiryDate: String? = null
+)
+
+/**
+ * Business type enumeration
+ */
+enum class BusinessType {
+    SAS,      // Sociedad por Acciones Simplificada
+    SA,       // Sociedad Anónima
+    LTDA,     // Sociedad Limitada
+    SL,       // Sociedad Limitada (Spain)
+    LLC,      // Limited Liability Company
+    CORP,     // Corporation
+    OTHER
+}
+
+/**
+ * Basic business profile for minimal registration
+ */
+data class BasicBusinessProfile @JvmOverloads constructor(
+    val name: String,
+    val legalName: String,
+    val taxId: String,
+    val businessType: BusinessType,
+    val email: String,
+    val incorporationDate: String,
+    val country: String,
+    val phone: String? = null
 )
 
 /**
@@ -137,8 +171,18 @@ data class IndividualRegisterParams @JvmOverloads constructor(
     override val metadata: Map<String, String?>? = null
 ) : RegisterParams()
 
+data class BasicIndividualRegisterParams @JvmOverloads constructor(
+    override val profile: BasicUserProfile,
+    override val metadata: Map<String, String?>? = null
+) : RegisterParams()
+
 data class BusinessRegisterParams @JvmOverloads constructor(
     override val profile: BusinessProfile,
+    override val metadata: Map<String, String?>? = null
+) : RegisterParams()
+
+data class BasicBusinessRegisterParams @JvmOverloads constructor(
+    override val profile: BasicBusinessProfile,
     override val metadata: Map<String, String?>? = null
 ) : RegisterParams()
 
