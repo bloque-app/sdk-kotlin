@@ -89,4 +89,35 @@ class AccountsClient constructor(
 
         return response.result.movements
     }
+
+    /**
+     * Get account balance
+     *
+     * Works with any account type (card, virtual, bancolombia, polygon).
+     *
+     * @param params Parameters with account URN and optional asset filter
+     * @return Map of asset to balance
+     */
+    fun balance(params: GetBalanceParams): Map<String, TokenBalance> {
+        @Serializable
+        data class BalanceResult(val balances: Map<String, TokenBalanceWire>)
+
+        @Serializable
+        data class BalanceResponse(val result: BalanceResult)
+
+        val queryParams = params.asset?.let { "?asset=${it.value}" } ?: ""
+
+        val response = httpClient.get<BalanceResponse>(
+            path = "/api/accounts/${params.urn}/balance$queryParams"
+        )
+
+        return response.result.balances.mapValues { (_, wire) ->
+            TokenBalance(
+                current = wire.current,
+                pending = wire.pending,
+                `in` = wire.inAmount,
+                out = wire.outAmount
+            )
+        }
+    }
 }
