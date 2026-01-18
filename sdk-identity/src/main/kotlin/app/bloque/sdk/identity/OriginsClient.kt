@@ -89,7 +89,7 @@ class OriginsClient constructor(
                     put("name", profile.name)
                     put("legal_name", profile.legalName)
                     put("tax_id", profile.taxId)
-                    put("business_type", profile.businessType.name)
+                    put("type", profile.businessType.name)
                     put("email", profile.email)
                     put("incorporation_date", profile.incorporationDate)
                     put("country", profile.country)
@@ -100,10 +100,11 @@ class OriginsClient constructor(
             is BusinessRegisterParams -> {
                 val profile = params.profile
                 buildMap<String, String?> {
+                    put("name", profile.name)
                     put("legal_name", profile.legalName)
                     put("tax_id", profile.taxId)
                     put("incorporation_date", profile.incorporationDate)
-                    put("business_type", profile.businessType)
+                    put("type", profile.businessType)
                     put("incorporation_country_code", profile.incorporationCountryCode)
                     put("address_line1", profile.addressLine1)
                     profile.addressLine2?.let { put("address_line2", it) }

@@ -129,6 +129,7 @@ data class BasicBusinessProfile @JvmOverloads constructor(
  * Business profile for business accounts (KYB)
  */
 data class BusinessProfile @JvmOverloads constructor(
+    var name: String,
     val legalName: String,
     val taxId: String,
     val incorporationDate: String,

@@ -98,22 +98,21 @@ public class RegisterExample {
         System.out.println("\n=== Example 4: Register Business User ===");
 
         BusinessProfile businessProfile = new BusinessProfile(
-            "Acme Corporation",        // businessName
-            "Technology",              // industry
-            "contact@acme.com",        // email
-            "+1987654321",             // phone
-            "USA",                     // countryOfIncorporation
+            "Acme Corporation",        // legalName
+            "12-3456789",              // taxId
             "2015-06-15",              // incorporationDate
+            "CORP",                    // businessType
+            "US",                      // incorporationCountryCode
             "456 Business Ave",        // addressLine1
             "Suite 100",               // addressLine2
             "San Francisco",           // city
             "CA",                      // state
             "94102",                   // postalCode
             "USA",                     // country
-            "EIN",                     // documentType
-            "12-3456789",              // documentNumber
-            null,                      // documentIssueDate
-            null                       // documentExpiryDate
+            "https://acme.com",        // website
+            "contact@acme.com",        // email
+            "+1987654321",             // phone
+            "Technology"               // industry
         );
 
         UserSession businessSession = bloque.register(

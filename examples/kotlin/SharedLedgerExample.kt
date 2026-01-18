@@ -35,7 +35,7 @@ fun main() {
             ledgerId = null,     // null = create new ledger
             metadata = null
         ),
-        CreateAccountOptions(waitForCompletion = true, timeout = 60000L)
+        CreateAccountOptions(waitLedger = true, timeout = 60000L)
     )
 
     println("Virtual Account Created:")
@@ -60,7 +60,7 @@ fun main() {
 
     println("Card Account Created:")
     println("  URN: ${cardAccount.urn}")
-    println("  Card Number: ${cardAccount.cardNumber}")
+    println("  Last Four: ${cardAccount.lastFour}")
     println("  Ledger ID: ${cardAccount.ledgerId}")
     println("  Status: ${cardAccount.status}")
 
