@@ -14,9 +14,9 @@ import app.bloque.sdk.identity.*
 fun main() {
     // Initialize the SDK
     val bloque = BloqueSDK.create(
-        origin = "bloque-root",
-        apiKey = "sk_live_your_api_key_here",
-        mode = Mode.PRODUCTION
+        origin = "origin",
+        apiKey = "api-key",
+        mode = Mode.SANDBOX
     )
 
     // ============================================
@@ -48,7 +48,7 @@ fun main() {
     )
 
     println("User registered successfully!")
-    println("User URN: ${session.userUrn}")
+    println("User URN: ${session.getUrn()}")
 
     // ============================================
     // Example 2: List user's virtual accounts
@@ -84,39 +84,75 @@ fun main() {
     println("Virtual Account created: ${virtualAccount.urn}")
 
     // ============================================
-    // Example 4: Register a business user
+    // Example 4: Register a basic business (minimal fields)
     // ============================================
-    println("\n=== Example 4: Register Business User ===")
+    println("\n=== Example 4: Register Basic Business ===")
 
-    val businessProfile = BusinessProfile(
-        businessName = "Acme Corporation",
-        industry = "Technology",
+    // BasicBusinessProfile requires only the essential fields:
+    // - name: display name
+    // - legalName: official registered name
+    // - taxId: NIT, EIN, or tax identifier
+    // - businessType: SAS, SA, LTDA, SL, LLC, CORP, or OTHER
+    // - email: contact email
+    // - incorporationDate: date of incorporation (YYYY-MM-DD)
+    // - country: country code (e.g., "CO", "US")
+    // - phone: optional contact phone
+    val basicBusinessProfile = BasicBusinessProfile(
+        name = "Acme Corp",
+        legalName = "Acme Corporation S.A.S.",
+        taxId = "900123456-1",
+        businessType = BusinessType.SAS,
         email = "contact@acme.com",
-        phone = "+1987654321",
-        countryOfIncorporation = "USA",
-        incorporationDate = "2015-06-15",
-        addressLine1 = "456 Business Ave",
-        addressLine2 = "Suite 100",
-        city = "San Francisco",
-        state = "CA",
-        postalCode = "94102",
-        country = "USA",
-        documentType = "EIN",
-        documentNumber = "12-3456789"
+        incorporationDate = "2020-03-15",
+        country = "COL",
+        phone = "+573001234567"
     )
 
-    val businessSession = bloque.register(
+    val basicBusinessSession = bloque.register(
         alias = "acme-corp",
-        params = BusinessRegisterParams(businessProfile)
+        params = BasicBusinessRegisterParams(basicBusinessProfile)
     )
 
-    println("Business registered successfully!")
-    println("Business URN: ${businessSession.userUrn}")
+    println("Basic Business registered successfully!")
+    println("Business URN: ${basicBusinessSession.getUrn()}")
 
     // ============================================
-    // Example 5: Register with minimal info (using defaults)
+    // Example 5: Register a full business (with address)
     // ============================================
-    println("\n=== Example 5: Minimal Registration ===")
+    println("\n=== Example 5: Register Full Business ===")
+
+    // BusinessProfile includes all fields for full KYB
+    val fullBusinessProfile = BusinessProfile(
+        name = "TechStart Solutions",
+        legalName = "TechStart Solutions S.A.S.",
+        taxId = "901987654-3",
+        incorporationDate = "2018-06-20",
+        businessType = "SAS",
+        incorporationCountryCode = "CO",
+        addressLine1 = "Calle 100 #15-20",
+        addressLine2 = "Oficina 1501",
+        city = "Bogotá",
+        state = "Cundinamarca",
+        postalCode = "110111",
+        country = "COL",
+        website = "https://techstart.co",
+        email = "info@techstart.co",
+        phone = "+573109876543",
+        industry = "Technology"
+    )
+
+    val fullBusinessSession = bloque.register(
+        alias = "techstart",
+        params = BusinessRegisterParams(fullBusinessProfile)
+    )
+
+    println("Full Business registered successfully!")
+    println("Business URN: ${fullBusinessSession.getUrn()}")
+
+    // ============================================
+    // Example 6: Register with minimal individual info
+    // ============================================
+    println("\n=== Example 6: Minimal Individual Registration ===")
 
     val minimalProfile = UserProfile(
         firstName = "Jane",
@@ -141,5 +177,25 @@ fun main() {
     )
 
     println("Minimal registration completed!")
-    println("User URN: ${minimalSession.userUrn}")
+    println("User URN: ${minimalSession.getUrn()}")
+
+    // ============================================
+    // Example 7: Basic individual (phone only)
+    // ============================================
+    println("\n=== Example 7: Basic Individual (Phone Only) ===")
+
+    // BasicUserProfile requires only a phone number
+    val basicUserProfile = BasicUserProfile(
+        phoneNumber = "+573001234567"
+    )
+
+    val basicUserSession = bloque.register(
+        alias = "phone-user",
+        params = BasicIndividualRegisterParams(basicUserProfile)
+    )
+
+    println("Basic user registered with phone!")
+    println("User URN: ${basicUserSession.getUrn()}")
+
+    println("\n✅ All examples completed successfully!")
 }
