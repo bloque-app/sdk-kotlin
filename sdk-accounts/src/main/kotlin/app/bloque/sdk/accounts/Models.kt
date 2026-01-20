@@ -317,20 +317,24 @@ data class GetBalanceParams @JvmOverloads constructor(
 
 data class ListMovementsParams @JvmOverloads constructor(
     val urn: String,
+    val asset: String,
     val limit: Int? = null,
-    val offset: Int? = null
+    val before: String? = null,
+    val after: String? = null,
+    val reference: String? = null,
+    val direction: String? = null
 )
 
 @Serializable
 data class Movement(
-    val id: String,
     val amount: String,
     val asset: String,
     @SerialName("from_account_id") val fromAccountId: String,
-    @SerialName("to_account_id") val toAccountId: String,
+    @SerialName("to_account_id") val toAccountId: String? = null,
     val direction: String,
     val reference: String,
     @SerialName("rail_name") val railName: String,
+    val details: Map<String, kotlinx.serialization.json.JsonElement>? = null,
     @SerialName("created_at") val createdAt: String
 )
 

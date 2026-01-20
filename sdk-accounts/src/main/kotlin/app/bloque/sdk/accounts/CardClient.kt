@@ -228,31 +228,30 @@ class CardClient constructor(
     /**
      * Get account movements/transactions
      *
-     * @param params Parameters with URN and pagination
-     * @return List of movements
+     * @param params Parameters with URN, asset, and optional filters
+     * @return List of movements/transactions
      */
     fun movements(params: ListMovementsParams): List<Movement> {
         @Serializable
-        data class MovementsResult(val movements: List<Movement>)
-
-        @Serializable
-        data class MovementsResponse(val result: MovementsResult)
+        data class MovementsResponse(val transactions: List<Movement>)
 
         val queryParams = buildString {
             val parts = mutableListOf<String>()
+            parts.add("asset=${params.asset}")
             params.limit?.let { parts.add("limit=$it") }
-            params.offset?.let { parts.add("offset=$it") }
-            if (parts.isNotEmpty()) {
-                append("?")
-                append(parts.joinToString("&"))
-            }
+            params.before?.let { parts.add("before=$it") }
+            params.after?.let { parts.add("after=$it") }
+            params.reference?.let { parts.add("reference=$it") }
+            params.direction?.let { parts.add("direction=$it") }
+            append("?")
+            append(parts.joinToString("&"))
         }
 
         val response = httpClient.get<MovementsResponse>(
             path = "/api/accounts/${params.urn}/movements$queryParams"
         )
 
-        return response.result.movements
+        return response.transactions
     }
 
     private fun mapAccountResponse(account: AccountData<CardDetails>): CardAccount {

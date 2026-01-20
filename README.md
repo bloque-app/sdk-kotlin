@@ -24,7 +24,7 @@ repositories {
 
 dependencies {
     // You only need the main module
-    implementation("app.bloque.sdk:sdk:0.0.8")
+    implementation("app.bloque.sdk:sdk:0.0.9")
 }
 ```
 
@@ -37,7 +37,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'app.bloque.sdk:sdk:0.0.8'
+    implementation 'app.bloque.sdk:sdk:0.0.9'
 }
 ```
 
@@ -49,7 +49,7 @@ dependencies {
     <dependency>
         <groupId>app.bloque.sdk</groupId>
         <artifactId>sdk</artifactId>
-        <version>0.0.8</version>
+        <version>0.0.9</version>
     </dependency>
 </dependencies>
 ```
