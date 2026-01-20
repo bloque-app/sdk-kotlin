@@ -141,9 +141,12 @@ class OriginsClient constructor(
             profile = profileMap
         )
 
+        val headers = params.idempotencyKey?.let { mapOf("Idempotency-Key" to it) }
+
         val response = httpClient.post<RegisterResponseWire, RegisterRequestWire>(
             path = "/api/origins/${params.origin}/register",
-            body = request
+            body = request,
+            headers = headers
         )
 
         return RegisterResult(

@@ -50,9 +50,12 @@ class PolygonClient constructor(
             }
         )
 
+        val headers = params.idempotencyKey?.let { mapOf("Idempotency-Key" to it) }
+
         val response = httpClient.post<CreateAccountResponse<PolygonDetails>, CreateAccountRequest>(
             path = "/api/mediums/polygon",
-            body = request
+            body = request,
+            headers = headers
         )
 
         val account = mapAccountResponse(response.result.account)

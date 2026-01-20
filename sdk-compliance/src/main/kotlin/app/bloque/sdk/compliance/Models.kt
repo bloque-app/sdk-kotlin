@@ -26,7 +26,8 @@ enum class KycVerificationStatus {
  */
 data class KycVerificationParams @JvmOverloads constructor(
     val urn: String,
-    val webhookUrl: String? = null
+    val webhookUrl: String? = null,
+    val idempotencyKey: String? = null
 )
 
 /**

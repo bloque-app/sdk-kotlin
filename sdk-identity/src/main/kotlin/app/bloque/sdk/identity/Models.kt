@@ -157,6 +157,7 @@ data class BusinessProfile @JvmOverloads constructor(
 sealed class RegisterParams {
     abstract val profile: Any
     abstract val metadata: Map<String, String?>?
+    abstract val idempotencyKey: String?
     var alias: String = ""
     var origin: String = ""
 
@@ -169,22 +170,26 @@ sealed class RegisterParams {
 
 data class IndividualRegisterParams @JvmOverloads constructor(
     override val profile: UserProfile,
-    override val metadata: Map<String, String?>? = null
+    override val metadata: Map<String, String?>? = null,
+    override val idempotencyKey: String? = null
 ) : RegisterParams()
 
 data class BasicIndividualRegisterParams @JvmOverloads constructor(
     override val profile: BasicUserProfile,
-    override val metadata: Map<String, String?>? = null
+    override val metadata: Map<String, String?>? = null,
+    override val idempotencyKey: String? = null
 ) : RegisterParams()
 
 data class BusinessRegisterParams @JvmOverloads constructor(
     override val profile: BusinessProfile,
-    override val metadata: Map<String, String?>? = null
+    override val metadata: Map<String, String?>? = null,
+    override val idempotencyKey: String? = null
 ) : RegisterParams()
 
 data class BasicBusinessRegisterParams @JvmOverloads constructor(
     override val profile: BasicBusinessProfile,
-    override val metadata: Map<String, String?>? = null
+    override val metadata: Map<String, String?>? = null,
+    override val idempotencyKey: String? = null
 ) : RegisterParams()
 
 // ============================================

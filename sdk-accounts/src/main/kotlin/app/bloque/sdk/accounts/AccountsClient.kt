@@ -45,9 +45,12 @@ class AccountsClient constructor(
             metadata = params.metadata?.mapValues { it.value.toString() } ?: emptyMap()
         )
 
+        val headers = params.idempotencyKey?.let { mapOf("Idempotency-Key" to it) }
+
         val response = httpClient.post<TransferResponseWrapper, TransferRequest>(
             path = "/api/accounts/${params.sourceUrn}/transfer",
-            body = request
+            body = request,
+            headers = headers
         )
 
         return TransferResult(

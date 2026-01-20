@@ -22,9 +22,12 @@ class KycClient constructor(
             webhookUrl = params.webhookUrl
         )
 
+        val headers = params.idempotencyKey?.let { mapOf("Idempotency-Key" to it) }
+
         val response = httpClient.post<KycVerificationResponseWire, KycVerificationRequestWire>(
             path = "/api/compliance/kyc/start",
-            body = request
+            body = request,
+            headers = headers
         )
 
         return mapResponse(response.result)

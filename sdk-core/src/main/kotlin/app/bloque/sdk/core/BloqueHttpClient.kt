@@ -61,9 +61,9 @@ class BloqueHttpClient(
     /**
      * Make a POST request
      */
-    inline fun <reified T, reified B> post(path: String, body: B): T {
+    inline fun <reified T, reified B> post(path: String, body: B, headers: Map<String, String>? = null): T {
         val jsonBody = json.encodeToString(body)
-        return request("POST", path, jsonBody)
+        return request("POST", path, jsonBody, headers)
     }
 
     /**
@@ -85,7 +85,7 @@ class BloqueHttpClient(
      * Internal request method
      */
     @PublishedApi
-    internal inline fun <reified T> request(method: String, path: String, body: String?): T {
+    internal inline fun <reified T> request(method: String, path: String, body: String?, headers: Map<String, String>? = null): T {
         val url = "${baseUrl}$path"
 
         val requestBuilder = Request.Builder()
@@ -95,6 +95,10 @@ class BloqueHttpClient(
 
         accessToken?.let {
             requestBuilder.header("Authorization", "Bearer $it")
+        }
+
+        headers?.forEach { (key, value) ->
+            requestBuilder.header(key, value)
         }
 
         val requestBody = body?.toRequestBody("application/json".toMediaType())

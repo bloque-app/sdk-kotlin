@@ -79,7 +79,8 @@ data class CreateBancolombiaAccountParams @JvmOverloads constructor(
     val holderUrn: String? = null,
     val webhookUrl: String? = null,
     val ledgerId: String? = null,
-    val metadata: Map<String, String?>? = null
+    val metadata: Map<String, String?>? = null,
+    val idempotencyKey: String? = null
 )
 
 data class ListBancolombiaParams @JvmOverloads constructor(
@@ -121,7 +122,8 @@ data class CreateCardAccountParams @JvmOverloads constructor(
     val holderUrn: String? = null,
     val webhookUrl: String? = null,
     val ledgerId: String? = null,
-    val metadata: Map<String, String?>? = null
+    val metadata: Map<String, String?>? = null,
+    val idempotencyKey: String? = null
 )
 
 data class ListCardParams @JvmOverloads constructor(
@@ -164,7 +166,8 @@ data class CreateVirtualAccountParams @JvmOverloads constructor(
     val holderUrn: String? = null,
     val webhookUrl: String? = null,
     val ledgerId: String? = null,
-    val metadata: Map<String, String?>? = null
+    val metadata: Map<String, String?>? = null,
+    val idempotencyKey: String? = null
 )
 
 data class ListVirtualParams @JvmOverloads constructor(
@@ -217,7 +220,8 @@ data class CreatePolygonAccountParams @JvmOverloads constructor(
     val holderUrn: String? = null,
     val webhookUrl: String? = null,
     val ledgerId: String? = null,
-    val metadata: Map<String, String?>? = null
+    val metadata: Map<String, String?>? = null,
+    val idempotencyKey: String? = null
 )
 
 data class UpdatePolygonMetadataParams constructor(
@@ -263,7 +267,8 @@ data class TransferParams @JvmOverloads constructor(
     val destinationUrn: String,
     val amount: String,
     val asset: SupportedAsset,
-    val metadata: Map<String, Any?>? = null
+    val metadata: Map<String, Any?>? = null,
+    val idempotencyKey: String? = null
 )
 
 @Serializable

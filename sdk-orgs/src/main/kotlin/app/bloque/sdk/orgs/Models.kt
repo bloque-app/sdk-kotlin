@@ -72,7 +72,8 @@ data class Organization @JvmOverloads constructor(
  */
 data class CreateOrgParams @JvmOverloads constructor(
     val profile: OrgProfile,
-    val metadata: Map<String, String?> = emptyMap()
+    val metadata: Map<String, String?> = emptyMap(),
+    val idempotencyKey: String? = null
 )
 
 // ============================================

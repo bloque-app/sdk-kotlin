@@ -56,9 +56,12 @@ class CardClient constructor(
             }
         )
 
+        val headers = params.idempotencyKey?.let { mapOf("Idempotency-Key" to it) }
+
         val response = httpClient.post<CreateAccountResponse<CardDetails>, CreateAccountRequest>(
             path = "/api/mediums/card",
-            body = request
+            body = request,
+            headers = headers
         )
 
         val account = mapAccountResponse(response.result.account)

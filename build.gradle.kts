@@ -6,7 +6,7 @@ plugins {
 
 allprojects {
     group = "app.bloque.sdk"
-    version = "0.0.4"
+    version = "0.0.7"
 
     repositories {
         mavenCentral()
@@ -14,9 +14,6 @@ allprojects {
 }
 
 subprojects {
-    // Skip examples module from SDK configuration
-    if (name == "examples") return@subprojects
-
     apply(plugin = "org.jetbrains.kotlin.jvm")
     apply(plugin = "org.jetbrains.kotlin.plugin.serialization")
     apply(plugin = "java-library")

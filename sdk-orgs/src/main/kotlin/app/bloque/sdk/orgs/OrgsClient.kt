@@ -41,9 +41,12 @@ class OrgsClient constructor(
             metadata = params.metadata
         )
 
+        val headers = params.idempotencyKey?.let { mapOf("Idempotency-Key" to it) }
+
         val response = httpClient.post<CreateOrgResponseWire, CreateOrgRequestWire>(
             path = "/api/organizations",
-            body = request
+            body = request,
+            headers = headers
         )
 
         return mapOrganization(response.result.organization)

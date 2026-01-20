@@ -50,9 +50,12 @@ class VirtualClient constructor(
             }
         )
 
+        val headers = params.idempotencyKey?.let { mapOf("Idempotency-Key" to it) }
+
         val response = httpClient.post<CreateAccountResponse<VirtualDetails>, CreateAccountRequest>(
             path = "/api/mediums/virtual",
-            body = request
+            body = request,
+            headers = headers
         )
 
         val account = mapAccountResponse(response.result.account)
