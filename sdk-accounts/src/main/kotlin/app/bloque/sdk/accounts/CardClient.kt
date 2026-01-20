@@ -87,10 +87,12 @@ class CardClient constructor(
         val holderUrn = params.holderUrn ?: httpClient.getUrn()
 
         val queryParams = buildString {
-            append("?medium=card")
-            holderUrn?.let { append("&holder_urn=$it") }
-            params.urn?.let { append("&urn=$it") }
-            params.status?.let { append("&status=$it") }
+            val parts = mutableListOf<String>()
+            parts.add("medium=card")
+            holderUrn?.let { parts.add("holder_urn=$it") }
+            params.urn?.let { parts.add("urn=$it") }
+            append("?")
+            append(parts.joinToString("&"))
         }
 
         val response = httpClient.get<CardListResponse>(
@@ -251,35 +253,6 @@ class CardClient constructor(
         )
 
         return response.result.movements
-    }
-
-    /**
-     * Get account balance
-     *
-     * @param params Parameters with URN and optional asset filter
-     * @return Map of asset to balance
-     */
-    fun balance(params: GetBalanceParams): Map<String, TokenBalance> {
-        @Serializable
-        data class CardBalanceResult(val balances: Map<String, TokenBalanceWire>)
-
-        @Serializable
-        data class CardBalanceResponse(val result: CardBalanceResult)
-
-        val queryParams = params.asset?.let { "?asset=${it.value}" } ?: ""
-
-        val response = httpClient.get<CardBalanceResponse>(
-            path = "/api/accounts/${params.urn}/balance$queryParams"
-        )
-
-        return response.result.balances.mapValues { (_, wireBalance) ->
-            TokenBalance(
-                current = wireBalance.current,
-                pending = wireBalance.pending,
-                `in` = wireBalance.inAmount,
-                out = wireBalance.outAmount
-            )
-        }
     }
 
     private fun mapAccountResponse(account: AccountData<CardDetails>): CardAccount {

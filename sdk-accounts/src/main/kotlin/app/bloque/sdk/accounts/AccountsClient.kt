@@ -2,6 +2,7 @@ package app.bloque.sdk.accounts
 
 import app.bloque.sdk.core.BaseClient
 import app.bloque.sdk.core.BloqueHttpClient
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -94,32 +95,68 @@ class AccountsClient constructor(
     }
 
     /**
-     * Get account balance
+     * Get aggregated balances
      *
-     * Works with any account type (card, virtual, bancolombia, polygon).
+     * Retrieves aggregated balances across all accounts owned by the authenticated user.
      *
-     * @param params Parameters with account URN and optional asset filter
+     * @param params Optional parameters with account URNs to filter
      * @return Map of asset to balance
      */
-    fun balance(params: GetBalanceParams): Map<String, TokenBalance> {
+    @JvmOverloads
+    fun balance(params: GetBalanceParams = GetBalanceParams()): Map<String, TokenBalance> {
         @Serializable
-        data class BalanceResult(val balances: Map<String, TokenBalanceWire>)
-
-        @Serializable
-        data class BalanceResponse(val result: BalanceResult)
-
-        val queryParams = params.asset?.let { "?asset=${it.value}" } ?: ""
-
-        val response = httpClient.get<BalanceResponse>(
-            path = "/api/accounts/${params.urn}/balance$queryParams"
+        data class BalanceEntry(
+            val current: String,
+            val pending: String
         )
 
-        return response.result.balances.mapValues { (_, wire) ->
+        @Serializable
+        data class BalanceResponse(val balance: Map<String, BalanceEntry>)
+
+        val queryParams = params.accountUrns?.let { urns ->
+            if (urns.isNotEmpty()) "?account_urns=${urns.joinToString(",")}" else ""
+        } ?: ""
+
+        val response = httpClient.get<BalanceResponse>(
+            path = "/api/accounts/balances$queryParams"
+        )
+
+        return response.balance.mapValues { (_, entry) ->
             TokenBalance(
-                current = wire.current,
-                pending = wire.pending,
-                `in` = wire.inAmount,
-                out = wire.outAmount
+                current = entry.current,
+                pending = entry.pending
+            )
+        }
+    }
+
+    /**
+     * Get balance for a specific account
+     *
+     * @param params Parameters with account URN
+     * @return Map of asset to balance (includes in/out details)
+     */
+    fun balanceByAccount(params: GetAccountBalanceParams): Map<String, TokenBalance> {
+        @Serializable
+        data class BalanceEntry(
+            val current: String,
+            val pending: String,
+            @SerialName("in") val inAmount: String,
+            @SerialName("out") val outAmount: String
+        )
+
+        @Serializable
+        data class BalanceResponse(val balance: Map<String, BalanceEntry>)
+
+        val response = httpClient.get<BalanceResponse>(
+            path = "/api/accounts/${params.urn}/balance"
+        )
+
+        return response.balance.mapValues { (_, entry) ->
+            TokenBalance(
+                current = entry.current,
+                pending = entry.pending,
+                `in` = entry.inAmount,
+                out = entry.outAmount
             )
         }
     }

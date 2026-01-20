@@ -128,8 +128,7 @@ data class CreateCardAccountParams @JvmOverloads constructor(
 
 data class ListCardParams @JvmOverloads constructor(
     val urn: String? = null,
-    val holderUrn: String? = null,
-    val status: String? = null
+    val holderUrn: String? = null
 )
 
 data class UpdateCardMetadataParams constructor(
@@ -301,24 +300,19 @@ data class TransferResult constructor(
 // Balance and Movement Models
 // ============================================
 
-data class TokenBalance constructor(
+data class TokenBalance @JvmOverloads constructor(
     val current: String,
     val pending: String,
-    val `in`: String,
-    val out: String
+    val `in`: String? = null,
+    val out: String? = null
 )
 
-@Serializable
-internal data class TokenBalanceWire(
-    val current: String,
-    val pending: String,
-    @SerialName("in") val inAmount: String,
-    @SerialName("out") val outAmount: String
+data class GetAccountBalanceParams constructor(
+    val urn: String
 )
 
 data class GetBalanceParams @JvmOverloads constructor(
-    val urn: String,
-    val asset: SupportedAsset? = null
+    val accountUrns: List<String>? = null
 )
 
 data class ListMovementsParams @JvmOverloads constructor(
