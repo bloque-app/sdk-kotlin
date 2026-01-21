@@ -75,6 +75,14 @@ class BloqueHttpClient(
     }
 
     /**
+     * Make a PATCH request
+     */
+    inline fun <reified T, reified B> patch(path: String, body: B): T {
+        val jsonBody = json.encodeToString(body)
+        return request("PATCH", path, jsonBody)
+    }
+
+    /**
      * Make a DELETE request
      */
     inline fun <reified T> delete(path: String): T {
@@ -107,6 +115,7 @@ class BloqueHttpClient(
             "GET" -> requestBuilder.get()
             "POST" -> requestBuilder.post(requestBody ?: "".toRequestBody())
             "PUT" -> requestBuilder.put(requestBody ?: "".toRequestBody())
+            "PATCH" -> requestBuilder.patch(requestBody ?: "".toRequestBody())
             "DELETE" -> requestBuilder.delete(requestBody)
         }
 

@@ -152,8 +152,8 @@ class CardClient constructor(
         @Serializable
         data class UpdateMetadataRequest(val metadata: Map<String, String?>)
 
-        val response = httpClient.put<CreateAccountResponse<CardDetails>, UpdateMetadataRequest>(
-            path = "/api/accounts/${params.urn}/metadata",
+        val response = httpClient.patch<CreateAccountResponse<CardDetails>, UpdateMetadataRequest>(
+            path = "/api/accounts/${params.urn}",
             body = UpdateMetadataRequest(params.metadata)
         )
 
@@ -181,8 +181,8 @@ class CardClient constructor(
         @Serializable
         data class StatusRequest(@SerialName("status") val status: String)
 
-        val response = httpClient.put<CreateAccountResponse<CardDetails>, StatusRequest>(
-            path = "/api/accounts/$urn/status",
+        val response = httpClient.patch<CreateAccountResponse<CardDetails>, StatusRequest>(
+            path = "/api/accounts/$urn",
             body = StatusRequest("active")
         )
 
@@ -199,8 +199,8 @@ class CardClient constructor(
         @Serializable
         data class StatusRequest(@SerialName("status") val status: String)
 
-        val response = httpClient.put<CreateAccountResponse<CardDetails>, StatusRequest>(
-            path = "/api/accounts/$urn/status",
+        val response = httpClient.patch<CreateAccountResponse<CardDetails>, StatusRequest>(
+            path = "/api/accounts/$urn",
             body = StatusRequest("frozen")
         )
 
@@ -217,8 +217,8 @@ class CardClient constructor(
         @Serializable
         data class StatusRequest(@SerialName("status") val status: String)
 
-        val response = httpClient.put<CreateAccountResponse<CardDetails>, StatusRequest>(
-            path = "/api/accounts/$urn/status",
+        val response = httpClient.patch<CreateAccountResponse<CardDetails>, StatusRequest>(
+            path = "/api/accounts/$urn",
             body = StatusRequest("disabled")
         )
 

@@ -143,8 +143,8 @@ class BancolombiaClient constructor(
         @Serializable
         data class UpdateMetadataRequest(val metadata: Map<String, String?>)
 
-        val response = httpClient.put<CreateAccountResponse<BancolombiaDetails>, UpdateMetadataRequest>(
-            path = "/api/accounts/${params.urn}/metadata",
+        val response = httpClient.patch<CreateAccountResponse<BancolombiaDetails>, UpdateMetadataRequest>(
+            path = "/api/accounts/${params.urn}",
             body = UpdateMetadataRequest(params.metadata)
         )
 
@@ -172,8 +172,8 @@ class BancolombiaClient constructor(
         @Serializable
         data class StatusRequest(@SerialName("status") val status: String)
 
-        val response = httpClient.put<CreateAccountResponse<BancolombiaDetails>, StatusRequest>(
-            path = "/api/accounts/$urn/status",
+        val response = httpClient.patch<CreateAccountResponse<BancolombiaDetails>, StatusRequest>(
+            path = "/api/accounts/$urn",
             body = StatusRequest("active")
         )
 
@@ -190,8 +190,8 @@ class BancolombiaClient constructor(
         @Serializable
         data class StatusRequest(@SerialName("status") val status: String)
 
-        val response = httpClient.put<CreateAccountResponse<BancolombiaDetails>, StatusRequest>(
-            path = "/api/accounts/$urn/status",
+        val response = httpClient.patch<CreateAccountResponse<BancolombiaDetails>, StatusRequest>(
+            path = "/api/accounts/$urn",
             body = StatusRequest("frozen")
         )
 
@@ -208,8 +208,8 @@ class BancolombiaClient constructor(
         @Serializable
         data class StatusRequest(@SerialName("status") val status: String)
 
-        val response = httpClient.put<CreateAccountResponse<BancolombiaDetails>, StatusRequest>(
-            path = "/api/accounts/$urn/status",
+        val response = httpClient.patch<CreateAccountResponse<BancolombiaDetails>, StatusRequest>(
+            path = "/api/accounts/$urn",
             body = StatusRequest("disabled")
         )
 

@@ -144,8 +144,8 @@ class PolygonClient constructor(
         @Serializable
         data class UpdateMetadataRequest(val metadata: Map<String, String?>)
 
-        val response = httpClient.put<CreateAccountResponse<PolygonDetails>, UpdateMetadataRequest>(
-            path = "/api/accounts/${params.urn}/metadata",
+        val response = httpClient.patch<CreateAccountResponse<PolygonDetails>, UpdateMetadataRequest>(
+            path = "/api/accounts/${params.urn}",
             body = UpdateMetadataRequest(params.metadata)
         )
 
@@ -162,8 +162,8 @@ class PolygonClient constructor(
         @Serializable
         data class StatusRequest(@SerialName("status") val status: String)
 
-        val response = httpClient.put<CreateAccountResponse<PolygonDetails>, StatusRequest>(
-            path = "/api/accounts/$urn/status",
+        val response = httpClient.patch<CreateAccountResponse<PolygonDetails>, StatusRequest>(
+            path = "/api/accounts/$urn",
             body = StatusRequest("active")
         )
 
@@ -180,8 +180,8 @@ class PolygonClient constructor(
         @Serializable
         data class StatusRequest(@SerialName("status") val status: String)
 
-        val response = httpClient.put<CreateAccountResponse<PolygonDetails>, StatusRequest>(
-            path = "/api/accounts/$urn/status",
+        val response = httpClient.patch<CreateAccountResponse<PolygonDetails>, StatusRequest>(
+            path = "/api/accounts/$urn",
             body = StatusRequest("frozen")
         )
 
@@ -198,8 +198,8 @@ class PolygonClient constructor(
         @Serializable
         data class StatusRequest(@SerialName("status") val status: String)
 
-        val response = httpClient.put<CreateAccountResponse<PolygonDetails>, StatusRequest>(
-            path = "/api/accounts/$urn/status",
+        val response = httpClient.patch<CreateAccountResponse<PolygonDetails>, StatusRequest>(
+            path = "/api/accounts/$urn",
             body = StatusRequest("disabled")
         )
 
