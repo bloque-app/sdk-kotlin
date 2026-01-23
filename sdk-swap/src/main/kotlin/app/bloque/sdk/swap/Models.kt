@@ -170,3 +170,182 @@ internal data class PseBankWire(
     @SerialName("financial_institution_code") val financialInstitutionCode: String,
     @SerialName("financial_institution_name") val financialInstitutionName: String
 )
+
+// ============================================
+// PSE Create Order - Request Models
+// ============================================
+
+enum class OrderType(val value: String) {
+    SRC("src"),
+    DST("dst")
+}
+
+data class DepositInformation(
+    val urn: String
+)
+
+data class CustomerData(
+    val fullName: String
+)
+
+data class PseOrderArgs @JvmOverloads constructor(
+    val bankCode: String,
+    val userType: String? = null,
+    val customerEmail: String? = null,
+    val userLegalIdType: String? = null,
+    val userLegalId: String? = null,
+    val customerData: CustomerData? = null
+)
+
+data class CreatePseOrderParams @JvmOverloads constructor(
+    val rateSig: String,
+    val toMedium: String,
+    val depositInformation: DepositInformation,
+    val amountSrc: String? = null,
+    val amountDst: String? = null,
+    val type: OrderType? = null,
+    val args: PseOrderArgs? = null,
+    val nodeId: String? = null,
+    val metadata: Map<String, String>? = null
+)
+
+// ============================================
+// PSE Create Order - Response Models
+// ============================================
+
+data class CreatePseOrderResult(
+    val order: SwapOrder,
+    val execution: ExecutionResult?,
+    val requestId: String
+)
+
+data class SwapOrder(
+    val id: String,
+    val orderSig: String,
+    val rateSig: String,
+    val swapSig: String,
+    val taker: String,
+    val maker: String,
+    val fromAsset: String,
+    val toAsset: String,
+    val fromMedium: String,
+    val toMedium: String,
+    val fromAmount: String,
+    val toAmount: String,
+    val at: String,
+    val graphId: String,
+    val status: String,
+    val metadata: Map<String, String>?,
+    val createdAt: String,
+    val updatedAt: String
+)
+
+data class ExecutionResult(
+    val nodeId: String,
+    val result: ExecutionResultDetails
+)
+
+data class ExecutionResultDetails(
+    val status: String,
+    val name: String,
+    val description: String,
+    val how: ExecutionHow?,
+    val callbackToken: String?
+)
+
+data class ExecutionHow(
+    val url: String?
+)
+
+// ============================================
+// PSE Create Order - Wire Models (Internal)
+// ============================================
+
+@Serializable
+internal data class CreateOrderInputWire(
+    @SerialName("taker_urn") val takerUrn: String,
+    val type: String,
+    @SerialName("rate_sig") val rateSig: String,
+    @SerialName("from_medium") val fromMedium: String,
+    @SerialName("to_medium") val toMedium: String,
+    @SerialName("deposit_information") val depositInformation: DepositInformationWire,
+    @SerialName("amount_src") val amountSrc: String? = null,
+    @SerialName("amount_dst") val amountDst: String? = null,
+    val args: PseOrderArgsWire? = null,
+    @SerialName("node_id") val nodeId: String? = null,
+    val metadata: Map<String, String>? = null
+)
+
+@Serializable
+internal data class DepositInformationWire(
+    val urn: String
+)
+
+@Serializable
+internal data class CustomerDataWire(
+    @SerialName("full_name") val fullName: String
+)
+
+@Serializable
+internal data class PseOrderArgsWire(
+    @SerialName("bank_code") val bankCode: String,
+    @SerialName("user_type") val userType: String? = null,
+    @SerialName("customer_email") val customerEmail: String? = null,
+    @SerialName("user_legal_id_type") val userLegalIdType: String? = null,
+    @SerialName("user_legal_id") val userLegalId: String? = null,
+    @SerialName("customer_data") val customerData: CustomerDataWire? = null
+)
+
+@Serializable
+internal data class CreateOrderResponseWire(
+    val result: CreateOrderResultWire,
+    @SerialName("req_id") val reqId: String
+)
+
+@Serializable
+internal data class CreateOrderResultWire(
+    val order: OrderWire,
+    val execution: ExecutionResultWire? = null
+)
+
+@Serializable
+internal data class OrderWire(
+    val id: String,
+    @SerialName("order_sig") val orderSig: String,
+    @SerialName("rate_sig") val rateSig: String,
+    @SerialName("swap_sig") val swapSig: String,
+    val taker: String,
+    val maker: String,
+    @SerialName("from_asset") val fromAsset: String,
+    @SerialName("to_asset") val toAsset: String,
+    @SerialName("from_medium") val fromMedium: String,
+    @SerialName("to_medium") val toMedium: String,
+    @SerialName("from_amount") val fromAmount: String,
+    @SerialName("to_amount") val toAmount: String,
+    val at: String,
+    @SerialName("graph_id") val graphId: String,
+    val status: String,
+    val metadata: Map<String, String>? = null,
+    @SerialName("created_at") val createdAt: String,
+    @SerialName("updated_at") val updatedAt: String
+)
+
+@Serializable
+internal data class ExecutionResultWire(
+    @SerialName("node_id") val nodeId: String,
+    val result: ExecutionResultDetailsWire
+)
+
+@Serializable
+internal data class ExecutionResultDetailsWire(
+    val status: String,
+    val name: String,
+    val description: String,
+    val how: ExecutionHowWire? = null,
+    @SerialName("callback_token") val callbackToken: String? = null
+)
+
+@Serializable
+internal data class ExecutionHowWire(
+    val url: String? = null
+)
