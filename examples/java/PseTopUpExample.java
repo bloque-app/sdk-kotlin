@@ -42,9 +42,18 @@ public class PseTopUpExample {
         System.out.println("=== Available PSE Banks ===");
         ListBanksResult banksResult = session.getSwap().getPse().banks();
 
+        if (banksResult.getBanks().isEmpty()) {
+            System.out.println("No PSE banks available");
+            return;
+        }
+
         for (Bank bank : banksResult.getBanks()) {
             System.out.println("- [" + bank.getCode() + "] " + bank.getName());
         }
+
+        // Use the first available bank
+        Bank selectedBank = banksResult.getBanks().get(0);
+        System.out.println("\nUsing bank: " + selectedBank.getName() + " (" + selectedBank.getCode() + ")");
 
         // 4. Find rates for PSE to Kusama
         System.out.println("\n=== Finding PSE Rates ===");
@@ -84,7 +93,7 @@ public class PseTopUpExample {
             null,                              // amountDst
             null,                              // type (defaults to SRC)
             new PseOrderArgs(                  // args
-                "1",                           // bankCode
+                selectedBank.getCode(),        // bankCode (from banks list)
                 "natural",                     // userType
                 "user@example.com",            // customerEmail
                 "CC",                          // userLegalIdType
