@@ -100,9 +100,10 @@ class BancolombiaClient constructor(
      * @return The bancolombia account
      */
     fun get(urn: String): BancolombiaAccount {
-        val accounts = list(ListBancolombiaParams(urn = urn))
-        return accounts.firstOrNull()
-            ?: throw RuntimeException("Account not found. URN: $urn")
+        val response = httpClient.get<CreateAccountResponse<BancolombiaDetails>>(
+            path = "/api/accounts/$urn"
+        )
+        return mapAccountResponse(response.result.account)
     }
 
     /**
@@ -117,9 +118,7 @@ class BancolombiaClient constructor(
                 throw RuntimeException("Timeout waiting for account to become active. URN: $urn")
             }
 
-            val result = list(ListBancolombiaParams(urn = urn))
-            val account = result.firstOrNull()
-                ?: throw RuntimeException("Account not found. URN: $urn")
+            val account = get(urn)
 
             if (account.status == "active") {
                 return account

@@ -109,9 +109,10 @@ class CardClient constructor(
      * @return The card account
      */
     fun get(urn: String): CardAccount {
-        val accounts = list(ListCardParams(urn = urn))
-        return accounts.firstOrNull()
-            ?: throw RuntimeException("Account not found. URN: $urn")
+        val response = httpClient.get<CreateAccountResponse<CardDetails>>(
+            path = "/api/accounts/$urn"
+        )
+        return mapAccountResponse(response.result.account)
     }
 
     /**
@@ -126,9 +127,7 @@ class CardClient constructor(
                 throw RuntimeException("Timeout waiting for account to become active. URN: $urn")
             }
 
-            val result = list(ListCardParams(urn = urn))
-            val account = result.firstOrNull()
-                ?: throw RuntimeException("Account not found. URN: $urn")
+            val account = get(urn)
 
             if (account.status == "active") {
                 return account
