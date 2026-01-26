@@ -247,6 +247,8 @@ data class UpdateBancolombiaMetadataParams constructor(
  * Supported assets for transfers
  */
 enum class SupportedAsset(val value: String) {
+    COP_2("COP/2"),
+    COPM_2("COPM/2"),
     DUSD_6("DUSD/6"),
     KSM_12("KSM/12");
 
