@@ -101,10 +101,13 @@ class VirtualClient constructor(
      * @return The virtual account
      */
     fun get(urn: String): VirtualAccount {
-        val response = httpClient.get<CreateAccountResponse<VirtualDetails>>(
+        @Serializable
+        data class GetAccountResponse(val account: AccountData<VirtualDetails>)
+
+        val response = httpClient.get<GetAccountResponse>(
             path = "/api/accounts/$urn"
         )
-        return mapAccountResponse(response.result.account)
+        return mapAccountResponse(response.account)
     }
 
     /**

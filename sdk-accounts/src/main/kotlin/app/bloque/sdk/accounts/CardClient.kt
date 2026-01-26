@@ -109,10 +109,13 @@ class CardClient constructor(
      * @return The card account
      */
     fun get(urn: String): CardAccount {
-        val response = httpClient.get<CreateAccountResponse<CardDetails>>(
+        @Serializable
+        data class GetAccountResponse(val account: AccountData<CardDetails>)
+
+        val response = httpClient.get<GetAccountResponse>(
             path = "/api/accounts/$urn"
         )
-        return mapAccountResponse(response.result.account)
+        return mapAccountResponse(response.account)
     }
 
     /**

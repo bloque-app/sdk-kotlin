@@ -101,10 +101,13 @@ class PolygonClient constructor(
      * @return The polygon account
      */
     fun get(urn: String): PolygonAccount {
-        val response = httpClient.get<CreateAccountResponse<PolygonDetails>>(
+        @Serializable
+        data class GetAccountResponse(val account: AccountData<PolygonDetails>)
+
+        val response = httpClient.get<GetAccountResponse>(
             path = "/api/accounts/$urn"
         )
-        return mapAccountResponse(response.result.account)
+        return mapAccountResponse(response.account)
     }
 
     /**

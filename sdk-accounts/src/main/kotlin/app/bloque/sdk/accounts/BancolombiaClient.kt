@@ -100,10 +100,13 @@ class BancolombiaClient constructor(
      * @return The bancolombia account
      */
     fun get(urn: String): BancolombiaAccount {
-        val response = httpClient.get<CreateAccountResponse<BancolombiaDetails>>(
+        @Serializable
+        data class GetAccountResponse(val account: AccountData<BancolombiaDetails>)
+
+        val response = httpClient.get<GetAccountResponse>(
             path = "/api/accounts/$urn"
         )
-        return mapAccountResponse(response.result.account)
+        return mapAccountResponse(response.account)
     }
 
     /**
