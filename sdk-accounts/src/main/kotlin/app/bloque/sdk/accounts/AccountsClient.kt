@@ -4,6 +4,11 @@ import app.bloque.sdk.core.BaseClient
 import app.bloque.sdk.core.BloqueHttpClient
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
 
 /**
  * Main client for all account operations
@@ -11,6 +16,32 @@ import kotlinx.serialization.Serializable
 class AccountsClient constructor(
     httpClient: BloqueHttpClient
 ) : BaseClient(httpClient) {
+
+    private fun mapToJsonElement(map: Map<String, Any?>?): JsonElement {
+        if (map == null) return JsonObject(emptyMap())
+        return buildJsonObject {
+            map.forEach { (key, value) ->
+                when (value) {
+                    is String -> put(key, JsonPrimitive(value))
+                    is Number -> put(key, JsonPrimitive(value))
+                    is Boolean -> put(key, JsonPrimitive(value))
+                    is Map<*, *> -> put(key, mapToJsonElement(value as Map<String, Any?>))
+                    is List<*> -> put(key, buildJsonArray {
+                        value.forEach { item ->
+                            when (item) {
+                                is String -> add(JsonPrimitive(item))
+                                is Number -> add(JsonPrimitive(item))
+                                is Boolean -> add(JsonPrimitive(item))
+                                is Map<*, *> -> add(mapToJsonElement(item as Map<String, Any?>))
+                                else -> add(JsonPrimitive(item.toString()))
+                            }
+                        }
+                    })
+                    else -> put(key, JsonPrimitive(value?.toString() ?: ""))
+                }
+            }
+        }
+    }
 
     /**
      * Bancolombia account operations
@@ -43,7 +74,7 @@ class AccountsClient constructor(
             destinationAccountUrn = params.destinationUrn,
             amount = params.amount,
             asset = params.asset.value,
-            metadata = params.metadata?.mapValues { it.value.toString() } ?: emptyMap()
+            metadata = mapToJsonElement(params.metadata)
         )
 
         val headers = params.idempotencyKey?.let { mapOf("Idempotency-Key" to it) }

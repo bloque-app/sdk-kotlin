@@ -15,7 +15,7 @@ data class CreateAccountRequest(
     @SerialName("webhook_url") val webhookUrl: String? = null,
     @SerialName("ledger_account_id") val ledgerAccountId: String? = null,
     val input: JsonElement? = null,
-    val metadata: Map<String, String?> = emptyMap()
+    val metadata: JsonElement = JsonObject(emptyMap())
 )
 
 // ============================================
@@ -40,7 +40,7 @@ data class AccountData<T>(
     @SerialName("owner_urn") val ownerUrn: String,
     @SerialName("ledger_account_id") val ledgerAccountId: String? = null,
     @SerialName("webhook_url") val webhookUrl: String? = null,
-    val metadata: Map<String, String?> = emptyMap(),
+    val metadata: JsonElement = JsonObject(emptyMap()),
     val details: T,
     @SerialName("created_at") val createdAt: String,
     @SerialName("updated_at") val updatedAt: String
@@ -66,7 +66,7 @@ data class BancolombiaAccount @JvmOverloads constructor(
     val ownerUrn: String,
     val ledgerId: String? = null,
     val webhookUrl: String? = null,
-    val metadata: Map<String, String?> = emptyMap(),
+    val metadata: JsonElement = JsonObject(emptyMap()),
     val createdAt: String = "",
     val updatedAt: String = ""
 )
@@ -79,7 +79,7 @@ data class CreateBancolombiaAccountParams @JvmOverloads constructor(
     val holderUrn: String? = null,
     val webhookUrl: String? = null,
     val ledgerId: String? = null,
-    val metadata: Map<String, String?>? = null,
+    val metadata: Map<String, Any?>? = null,
     val idempotencyKey: String? = null
 )
 
@@ -112,7 +112,7 @@ data class CardAccount @JvmOverloads constructor(
     val ownerUrn: String,
     val ledgerId: String? = null,
     val webhookUrl: String? = null,
-    val metadata: Map<String, String?> = emptyMap(),
+    val metadata: JsonElement = JsonObject(emptyMap()),
     val createdAt: String = "",
     val updatedAt: String = ""
 )
@@ -122,7 +122,7 @@ data class CreateCardAccountParams @JvmOverloads constructor(
     val holderUrn: String? = null,
     val webhookUrl: String? = null,
     val ledgerId: String? = null,
-    val metadata: Map<String, String?>? = null,
+    val metadata: Map<String, Any?>? = null,
     val idempotencyKey: String? = null
 )
 
@@ -133,7 +133,7 @@ data class ListCardParams @JvmOverloads constructor(
 
 data class UpdateCardMetadataParams constructor(
     val urn: String,
-    val metadata: Map<String, String?>
+    val metadata: Map<String, Any?>
 )
 
 // ============================================
@@ -155,7 +155,7 @@ data class VirtualAccount @JvmOverloads constructor(
     val ownerUrn: String,
     val ledgerId: String? = null,
     val webhookUrl: String? = null,
-    val metadata: Map<String, String?> = emptyMap(),
+    val metadata: JsonElement = JsonObject(emptyMap()),
     val createdAt: String = "",
     val updatedAt: String = ""
 )
@@ -165,7 +165,7 @@ data class CreateVirtualAccountParams @JvmOverloads constructor(
     val holderUrn: String? = null,
     val webhookUrl: String? = null,
     val ledgerId: String? = null,
-    val metadata: Map<String, String?>? = null,
+    val metadata: Map<String, Any?>? = null,
     val idempotencyKey: String? = null
 )
 
@@ -177,7 +177,7 @@ data class ListVirtualParams @JvmOverloads constructor(
 
 data class UpdateVirtualMetadataParams constructor(
     val urn: String,
-    val metadata: Map<String, String?>
+    val metadata: Map<String, Any?>
 )
 
 /**
@@ -209,7 +209,7 @@ data class PolygonAccount @JvmOverloads constructor(
     val ownerUrn: String,
     val ledgerId: String? = null,
     val webhookUrl: String? = null,
-    val metadata: Map<String, String?> = emptyMap(),
+    val metadata: JsonElement = JsonObject(emptyMap()),
     val createdAt: String = "",
     val updatedAt: String = ""
 )
@@ -219,13 +219,13 @@ data class CreatePolygonAccountParams @JvmOverloads constructor(
     val holderUrn: String? = null,
     val webhookUrl: String? = null,
     val ledgerId: String? = null,
-    val metadata: Map<String, String?>? = null,
+    val metadata: Map<String, Any?>? = null,
     val idempotencyKey: String? = null
 )
 
 data class UpdatePolygonMetadataParams constructor(
     val urn: String,
-    val metadata: Map<String, String?>
+    val metadata: Map<String, Any?>
 )
 
 data class ListPolygonParams @JvmOverloads constructor(
@@ -236,7 +236,7 @@ data class ListPolygonParams @JvmOverloads constructor(
 
 data class UpdateBancolombiaMetadataParams constructor(
     val urn: String,
-    val metadata: Map<String, String?>
+    val metadata: Map<String, Any?>
 )
 
 // ============================================
@@ -275,7 +275,7 @@ internal data class TransferRequest(
     @SerialName("destination_account_urn") val destinationAccountUrn: String,
     val amount: String,
     val asset: String,
-    val metadata: Map<String, String> = emptyMap()
+    val metadata: JsonElement = JsonObject(emptyMap())
 )
 
 @Serializable

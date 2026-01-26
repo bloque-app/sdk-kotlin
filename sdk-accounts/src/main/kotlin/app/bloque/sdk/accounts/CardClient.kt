@@ -4,6 +4,10 @@ import app.bloque.sdk.core.BaseClient
 import app.bloque.sdk.core.BloqueHttpClient
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -13,6 +17,32 @@ import kotlinx.serialization.json.put
 class CardClient constructor(
     httpClient: BloqueHttpClient
 ) : BaseClient(httpClient) {
+
+    private fun mapToJsonElement(map: Map<String, Any?>?): JsonElement {
+        if (map == null) return JsonObject(emptyMap())
+        return buildJsonObject {
+            map.forEach { (key, value) ->
+                when (value) {
+                    is String -> put(key, value)
+                    is Number -> put(key, value)
+                    is Boolean -> put(key, value)
+                    is Map<*, *> -> put(key, mapToJsonElement(value as Map<String, Any?>))
+                    is List<*> -> put(key, buildJsonArray {
+                        value.forEach { item ->
+                            when (item) {
+                                is String -> add(JsonPrimitive(item))
+                                is Number -> add(JsonPrimitive(item))
+                                is Boolean -> add(JsonPrimitive(item))
+                                is Map<*, *> -> add(mapToJsonElement(item as Map<String, Any?>))
+                                else -> add(JsonPrimitive(item.toString()))
+                            }
+                        }
+                    })
+                    else -> put(key, value?.toString() ?: "")
+                }
+            }
+        }
+    }
 
     /**
      * Create a new Card account
@@ -49,10 +79,13 @@ class CardClient constructor(
                     put("card_type", "VIRTUAL")
                 })
             },
-            metadata = buildMap {
+            metadata = buildJsonObject {
                 put("source", "sdk-kotlin")
                 params.name?.let { put("name", it) }
-                params.metadata?.let { putAll(it) }
+                val metaJson = mapToJsonElement(params.metadata)
+                if (metaJson is JsonObject) {
+                    metaJson.entries.forEach { put(it.key, it.value) }
+                }
             }
         )
 
@@ -152,11 +185,11 @@ class CardClient constructor(
      */
     fun updateMetadata(params: UpdateCardMetadataParams): CardAccount {
         @Serializable
-        data class UpdateMetadataRequest(val metadata: Map<String, String?>)
+        data class UpdateMetadataRequest(val metadata: JsonElement)
 
         val response = httpClient.patch<CreateAccountResponse<CardDetails>, UpdateMetadataRequest>(
             path = "/api/accounts/${params.urn}",
-            body = UpdateMetadataRequest(params.metadata)
+            body = UpdateMetadataRequest(mapToJsonElement(params.metadata))
         )
 
         return mapAccountResponse(response.result.account)
