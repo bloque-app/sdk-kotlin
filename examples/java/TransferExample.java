@@ -115,8 +115,7 @@ public class TransferExample {
         System.out.println("\n=== Example 5: Check Balance After Transfer ===");
 
         Map<String, TokenBalance> balances = session.getAccounts()
-            .getCard()
-            .balance(new GetBalanceParams(cardAccount.getUrn(), SupportedAsset.DUSD_6));
+            .balanceByAccount(new GetAccountBalanceParams(cardAccount.getUrn()));
 
         balances.forEach((asset, balance) -> {
             System.out.println("Asset: " + asset);

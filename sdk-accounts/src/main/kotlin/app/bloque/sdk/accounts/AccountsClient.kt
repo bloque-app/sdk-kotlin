@@ -189,4 +189,91 @@ class AccountsClient constructor(
             )
         }
     }
+
+    /**
+     * Execute a batch transfer of funds between multiple accounts
+     *
+     * This method enables efficient bulk transfers by:
+     * - Grouping multiple transfer operations into atomic batch transactions
+     * - Automatically splitting large batches into chunks of max 80 operations each
+     * - Providing per-operation tracking via reference IDs
+     * - Sending webhook notifications for each chunk's settlement status
+     *
+     * Usage (Kotlin):
+     * ```kotlin
+     * val result = session.accounts.batchTransfer(
+     *     BatchTransferParams.builder()
+     *         .reference("batch-payroll-2024-01-15")
+     *         .addOperation {
+     *             fromAccountUrn("did:bloque:account:card:usr-xxx:crd-source")
+     *             toAccountUrn("did:bloque:account:card:usr-xxx:crd-dest")
+     *             reference("transfer-001")
+     *             amount("1000000")
+     *             asset(SupportedAsset.DUSD_6)
+     *         }
+     *         .webhookUrl("https://example.com/webhook")
+     *         .build()
+     * )
+     * ```
+     *
+     * Usage (Java):
+     * ```java
+     * BatchTransferResult result = session.getAccounts().batchTransfer(
+     *     BatchTransferParams.builder()
+     *         .reference("batch-payroll-2024-01-15")
+     *         .addOperation(BatchTransferOperation.builder()
+     *             .fromAccountUrn("did:bloque:account:card:usr-xxx:crd-source")
+     *             .toAccountUrn("did:bloque:account:card:usr-xxx:crd-dest")
+     *             .reference("transfer-001")
+     *             .amount("1000000")
+     *             .asset(SupportedAsset.DUSD_6)
+     *             .build())
+     *         .webhookUrl("https://example.com/webhook")
+     *         .build()
+     * );
+     * ```
+     *
+     * @param params Batch transfer parameters with operations, reference, and optional webhook URL
+     * @return BatchTransferResult with chunk queue IDs, statuses, and operation counts
+     */
+    fun batchTransfer(params: BatchTransferParams): BatchTransferResult {
+        val operationRequests = params.operations.map { op ->
+            BatchTransferOperationRequest(
+                fromAccountUrn = op.fromAccountUrn,
+                toAccountUrn = op.toAccountUrn,
+                reference = op.reference,
+                amount = op.amount,
+                asset = op.asset.value,
+                metadata = mapToJsonElement(op.metadata)
+            )
+        }
+
+        val request = BatchTransferRequest(
+            operations = operationRequests,
+            reference = params.reference,
+            metadata = mapToJsonElement(params.metadata),
+            webhookUrl = params.webhookUrl
+        )
+
+        val headers = params.idempotencyKey?.let { mapOf("Idempotency-Key" to it) }
+
+        val response = httpClient.post<BatchTransferResponseWrapper, BatchTransferRequest>(
+            path = "/api/accounts/batch/transfer",
+            body = request,
+            headers = headers
+        )
+
+        return BatchTransferResult(
+            chunks = response.result.chunks.map { chunk ->
+                BatchTransferChunkResult(
+                    queueId = chunk.queueId,
+                    status = chunk.status,
+                    message = chunk.message
+                )
+            },
+            totalOperations = response.result.totalOperations,
+            totalChunks = response.result.totalChunks,
+            reqId = response.reqId
+        )
+    }
 }

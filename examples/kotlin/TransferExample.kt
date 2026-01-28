@@ -111,11 +111,8 @@ fun main() {
     // ============================================
     println("\n=== Example 5: Check Balance After Transfer ===")
 
-    val balances = session.accounts.card.balance(
-        GetBalanceParams(
-            urn = cardAccount.urn,
-            asset = SupportedAsset.DUSD_6
-        )
+    val balances = session.accounts.balanceByAccount(
+        GetAccountBalanceParams(urn = cardAccount.urn)
     )
 
     balances.forEach { (asset, balance) ->
@@ -135,16 +132,16 @@ fun main() {
     val movements = session.accounts.movements(
         ListMovementsParams(
             urn = cardAccount.urn,
+            asset = SupportedAsset.DUSD_6.value,
             limit = 10
         )
     )
 
     println("Found ${movements.size} movements:")
     movements.forEach { movement ->
-        println("  - ID: ${movement.id}")
+        println("  - Reference: ${movement.reference}")
         println("    Amount: ${movement.amount} ${movement.asset}")
         println("    Direction: ${movement.direction}")
-        println("    Reference: ${movement.reference}")
         println("    Date: ${movement.createdAt}")
     }
 
