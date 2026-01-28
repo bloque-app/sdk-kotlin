@@ -40,12 +40,12 @@ public class CardUpdateExample {
             Map.of("name", "Mi Tarjeta Actualizada", "custom_field", "valor_custom")
         );
         CardAccount updatedCard = session.getAccounts().getCard().updateMetadata(metadataParams);
-        System.out.println("Metadata actualizada. Nuevo nombre: " + updatedCard.getMetadata().get("name"));
+        System.out.println("Metadata actualizada: " + updatedCard.getMetadata());
 
         // Test updateName
         System.out.println("\n=== Probando updateName ===");
         updatedCard = session.getAccounts().getCard().updateName(cardUrn, "Tarjeta Principal");
-        System.out.println("Nombre actualizado: " + updatedCard.getMetadata().get("name"));
+        System.out.println("Nombre actualizado. Metadata: " + updatedCard.getMetadata());
 
         // Test freeze
         System.out.println("\n=== Probando freeze ===");

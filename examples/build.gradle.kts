@@ -26,7 +26,8 @@ sourceSets {
 val kotlinExamples = listOf(
     "Register" to "app.bloque.examples.RegisterExampleKt",
     "Transfer" to "app.bloque.examples.TransferExampleKt",
-    "SharedLedger" to "app.bloque.examples.SharedLedgerExampleKt"
+    "SharedLedger" to "app.bloque.examples.SharedLedgerExampleKt",
+    "BatchTransfer" to "app.bloque.examples.BatchTransferExampleKt"
 )
 
 kotlinExamples.forEach { (name, className) ->
@@ -43,7 +44,8 @@ val javaExamples = listOf(
     "RegisterJava" to "app.bloque.examples.RegisterExample",
     "TransferJava" to "app.bloque.examples.TransferExample",
     "SharedLedgerJava" to "app.bloque.examples.SharedLedgerExample",
-    "SwapJava" to "app.bloque.examples.SwapExample"
+    "SwapJava" to "app.bloque.examples.SwapExample",
+    "BatchTransferJava" to "app.bloque.examples.BatchTransferExample"
 )
 
 javaExamples.forEach { (name, className) ->
