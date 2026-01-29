@@ -52,7 +52,12 @@ data class AccountData<T>(
 
 @Serializable
 data class BancolombiaDetails(
-    @SerialName("reference_code") val referenceCode: String? = null
+    /** Account identifier (same as reference_code) */
+    val id: String? = null,
+    /** Unique 5-digit reference code for the virtual account */
+    @SerialName("reference_code") val referenceCode: String? = null,
+    /** Payment agreement code for Bancolombia transactions */
+    @SerialName("payment_agreement_code") val paymentAgreementCode: String? = null
 )
 
 /**
@@ -61,7 +66,12 @@ data class BancolombiaDetails(
 data class BancolombiaAccount @JvmOverloads constructor(
     val urn: String,
     val id: String,
+    /** Unique 5-digit reference code for the virtual account */
     val referenceCode: String?,
+    /** Account identifier from details (same as reference_code) */
+    val detailsId: String? = null,
+    /** Payment agreement code for Bancolombia transactions */
+    val paymentAgreementCode: String? = null,
     val status: String,
     val ownerUrn: String,
     val ledgerId: String? = null,
