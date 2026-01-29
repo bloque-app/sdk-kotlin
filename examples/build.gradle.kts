@@ -27,7 +27,8 @@ val kotlinExamples = listOf(
     "Register" to "app.bloque.examples.RegisterExampleKt",
     "Transfer" to "app.bloque.examples.TransferExampleKt",
     "SharedLedger" to "app.bloque.examples.SharedLedgerExampleKt",
-    "BatchTransfer" to "app.bloque.examples.BatchTransferExampleKt"
+    "BatchTransfer" to "app.bloque.examples.BatchTransferExampleKt",
+    "ColBankWithdrawal" to "app.bloque.examples.ColBankWithdrawalExampleKt"
 )
 
 kotlinExamples.forEach { (name, className) ->

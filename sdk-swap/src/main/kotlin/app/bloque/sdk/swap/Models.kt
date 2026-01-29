@@ -180,6 +180,57 @@ enum class OrderType(val value: String) {
     DST("dst")
 }
 
+/**
+ * Order status for filtering
+ */
+enum class OrderStatus(val value: String) {
+    PENDING("pending"),
+    IN_PROGRESS("in_progress"),
+    COMPLETED("completed"),
+    FAILED("failed");
+
+    companion object {
+        @JvmStatic
+        fun fromString(value: String): OrderStatus {
+            return entries.find { it.value == value }
+                ?: throw IllegalArgumentException("Unknown order status: $value. Valid values: pending, in_progress, completed, failed")
+        }
+    }
+}
+
+// ============================================
+// List Orders - Request/Response Models
+// ============================================
+
+/**
+ * Parameters for listing orders as taker
+ */
+data class ListOrdersParams @JvmOverloads constructor(
+    /** Filter by order status */
+    val status: OrderStatus? = null,
+    /** Filter by maker URN */
+    val makerUrn: String? = null,
+    /** Filter by order signature */
+    val orderSig: String? = null,
+    /** Filter by swap signature */
+    val swapSig: String? = null,
+    /** Filter by rate signature */
+    val rateSig: String? = null,
+    /** Filter by graph ID */
+    val graphId: String? = null,
+    /** Filter orders created after this timestamp (Unix milliseconds) */
+    val after: Long? = null,
+    /** Filter orders created before this timestamp (Unix milliseconds) */
+    val before: Long? = null
+)
+
+/**
+ * Result of listing orders
+ */
+data class ListOrdersResult(
+    val orders: List<SwapOrder>
+)
+
 data class DepositInformation(
     val urn: String
 )
@@ -303,6 +354,11 @@ internal data class CreateOrderResponseWire(
 )
 
 @Serializable
+internal data class ListOrdersResponseWire(
+    val orders: List<OrderWire>
+)
+
+@Serializable
 internal data class CreateOrderResultWire(
     val order: OrderWire,
     val execution: ExecutionResultWire? = null
@@ -348,4 +404,214 @@ internal data class ExecutionResultDetailsWire(
 @Serializable
 internal data class ExecutionHowWire(
     val url: String? = null
+)
+
+// ============================================
+// ColBank (Colombian Bank Withdrawal) - Request Models
+// ============================================
+
+/**
+ * Bank account type for Colombian bank withdrawals
+ */
+enum class BankAccountType(val value: String) {
+    SAVINGS("savings"),
+    CHECKINGS("checkings");
+
+    companion object {
+        @JvmStatic
+        fun fromString(value: String): BankAccountType {
+            return entries.find { it.value == value }
+                ?: throw IllegalArgumentException("Unknown bank account type: $value. Valid values: savings, checkings")
+        }
+    }
+}
+
+/**
+ * Identification type for Colombian bank account holder
+ */
+enum class IdentificationType(val value: String) {
+    CC("CC"),           // Cédula de Ciudadanía
+    CE("CE"),           // Cédula de Extranjería
+    NIT("NIT"),         // NIT (for businesses)
+    PASSPORT("PASSPORT");  // Passport
+
+    companion object {
+        @JvmStatic
+        fun fromString(value: String): IdentificationType {
+            return entries.find { it.value == value }
+                ?: throw IllegalArgumentException("Unknown identification type: $value. Valid values: CC, CE, NIT, PASSPORT")
+        }
+    }
+}
+
+/**
+ * Arguments for ColBank order execution
+ */
+data class ColBankOrderArgs(
+    /** Account URN to withdraw from */
+    val accountUrn: String
+)
+
+/**
+ * Bank account deposit information for Colombian bank withdrawal
+ */
+data class ColBankDepositInformation(
+    /** Type of bank account (savings or checking) */
+    val bankAccountType: BankAccountType,
+    /** Bank account number */
+    val bankAccountNumber: String,
+    /** Full name of the account holder */
+    val bankAccountHolderName: String,
+    /** Identification type (CC, CE, NIT, PP) */
+    val bankAccountHolderIdentificationType: IdentificationType,
+    /** Identification number/value */
+    val bankAccountHolderIdentificationValue: String
+) {
+    companion object {
+        @JvmStatic
+        fun builder() = ColBankDepositInformationBuilder()
+    }
+}
+
+/**
+ * Builder for ColBankDepositInformation (Java-friendly)
+ */
+class ColBankDepositInformationBuilder {
+    private var bankAccountType: BankAccountType? = null
+    private var bankAccountNumber: String? = null
+    private var bankAccountHolderName: String? = null
+    private var bankAccountHolderIdentificationType: IdentificationType? = null
+    private var bankAccountHolderIdentificationValue: String? = null
+
+    fun bankAccountType(type: BankAccountType) = apply { this.bankAccountType = type }
+    fun bankAccountNumber(number: String) = apply { this.bankAccountNumber = number }
+    fun bankAccountHolderName(name: String) = apply { this.bankAccountHolderName = name }
+    fun bankAccountHolderIdentificationType(type: IdentificationType) = apply { this.bankAccountHolderIdentificationType = type }
+    fun bankAccountHolderIdentificationValue(value: String) = apply { this.bankAccountHolderIdentificationValue = value }
+
+    fun build(): ColBankDepositInformation {
+        return ColBankDepositInformation(
+            bankAccountType = requireNotNull(bankAccountType) { "bankAccountType is required" },
+            bankAccountNumber = requireNotNull(bankAccountNumber) { "bankAccountNumber is required" },
+            bankAccountHolderName = requireNotNull(bankAccountHolderName) { "bankAccountHolderName is required" },
+            bankAccountHolderIdentificationType = requireNotNull(bankAccountHolderIdentificationType) { "bankAccountHolderIdentificationType is required" },
+            bankAccountHolderIdentificationValue = requireNotNull(bankAccountHolderIdentificationValue) { "bankAccountHolderIdentificationValue is required" }
+        )
+    }
+}
+
+/**
+ * Parameters for creating a Colombian bank withdrawal order
+ */
+data class CreateColBankOrderParams @JvmOverloads constructor(
+    /** Rate signature from findRates */
+    val rateSig: String,
+    /** Source medium (e.g., "kusama", "card", "virtual") */
+    val fromMedium: String,
+    /** Destination medium (e.g., "bancolombia", "davivienda") - must match rate's toMediums */
+    val toMedium: String,
+    /** Bank deposit information */
+    val depositInformation: ColBankDepositInformation,
+    /** Amount in source currency (required if type is SRC) */
+    val amountSrc: String? = null,
+    /** Amount in destination currency (required if type is DST) */
+    val amountDst: String? = null,
+    /** Order type: SRC (specify source amount) or DST (specify destination amount) */
+    val type: OrderType? = null,
+    /** Arguments for auto-execution (account URN) */
+    val args: ColBankOrderArgs? = null,
+    /** Node ID for execution graph */
+    val nodeId: String? = null,
+    /** Optional metadata */
+    val metadata: Map<String, String>? = null
+) {
+    companion object {
+        @JvmStatic
+        fun builder() = CreateColBankOrderParamsBuilder()
+    }
+}
+
+/**
+ * Builder for CreateColBankOrderParams (Java-friendly)
+ */
+class CreateColBankOrderParamsBuilder {
+    private var rateSig: String? = null
+    private var fromMedium: String? = null
+    private var toMedium: String? = null
+    private var depositInformation: ColBankDepositInformation? = null
+    private var amountSrc: String? = null
+    private var amountDst: String? = null
+    private var type: OrderType? = null
+    private var args: ColBankOrderArgs? = null
+    private var nodeId: String? = null
+    private var metadata: Map<String, String>? = null
+
+    fun rateSig(rateSig: String) = apply { this.rateSig = rateSig }
+    fun fromMedium(medium: String) = apply { this.fromMedium = medium }
+    fun toMedium(medium: String) = apply { this.toMedium = medium }
+    fun depositInformation(info: ColBankDepositInformation) = apply { this.depositInformation = info }
+    fun amountSrc(amount: String) = apply { this.amountSrc = amount }
+    fun amountDst(amount: String) = apply { this.amountDst = amount }
+    fun type(type: OrderType) = apply { this.type = type }
+    fun args(args: ColBankOrderArgs) = apply { this.args = args }
+    fun accountUrn(urn: String) = apply { this.args = ColBankOrderArgs(accountUrn = urn) }
+    fun nodeId(nodeId: String) = apply { this.nodeId = nodeId }
+    fun metadata(metadata: Map<String, String>) = apply { this.metadata = metadata }
+
+    fun build(): CreateColBankOrderParams {
+        return CreateColBankOrderParams(
+            rateSig = requireNotNull(rateSig) { "rateSig is required" },
+            fromMedium = requireNotNull(fromMedium) { "fromMedium is required" },
+            toMedium = requireNotNull(toMedium) { "toMedium is required" },
+            depositInformation = requireNotNull(depositInformation) { "depositInformation is required" },
+            amountSrc = amountSrc,
+            amountDst = amountDst,
+            type = type,
+            args = args,
+            nodeId = nodeId,
+            metadata = metadata
+        )
+    }
+}
+
+/**
+ * Result of creating a Colombian bank withdrawal order
+ */
+data class CreateColBankOrderResult(
+    val order: SwapOrder,
+    val execution: ExecutionResult?,
+    val requestId: String
+)
+
+// ============================================
+// ColBank - Wire Models (Internal)
+// ============================================
+
+@Serializable
+internal data class ColBankOrderArgsWire(
+    @SerialName("account_urn") val accountUrn: String
+)
+
+@Serializable
+internal data class ColBankDepositInformationWire(
+    @SerialName("bank_account_type") val bankAccountType: String,
+    @SerialName("bank_account_number") val bankAccountNumber: String,
+    @SerialName("bank_account_holder_name") val bankAccountHolderName: String,
+    @SerialName("bank_account_holder_identification_type") val bankAccountHolderIdentificationType: String,
+    @SerialName("bank_account_holder_identification_value") val bankAccountHolderIdentificationValue: String
+)
+
+@Serializable
+internal data class CreateColBankOrderInputWire(
+    @SerialName("taker_urn") val takerUrn: String,
+    val type: String,
+    @SerialName("rate_sig") val rateSig: String,
+    @SerialName("from_medium") val fromMedium: String,
+    @SerialName("to_medium") val toMedium: String,
+    @SerialName("amount_src") val amountSrc: String? = null,
+    @SerialName("amount_dst") val amountDst: String? = null,
+    val args: ColBankOrderArgsWire? = null,
+    @SerialName("deposit_information") val depositInformation: ColBankDepositInformationWire,
+    @SerialName("node_id") val nodeId: String? = null,
+    val metadata: Map<String, String>? = null
 )
