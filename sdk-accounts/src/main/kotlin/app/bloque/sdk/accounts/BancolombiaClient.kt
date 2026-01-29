@@ -73,7 +73,7 @@ class BancolombiaClient constructor(
             holderUrn = params.holderUrn ?: httpClient.getUrn() ?: "",
             webhookUrl = params.webhookUrl,
             ledgerAccountId = params.ledgerId,
-            input = null,
+            input = JsonObject(emptyMap()),  // API requires empty object, not null
             metadata = buildJsonObject {
                 put("source", "sdk-kotlin")
                 params.name?.let { put("name", it) }
@@ -259,6 +259,8 @@ class BancolombiaClient constructor(
             urn = account.urn,
             id = account.id,
             referenceCode = account.details.referenceCode,
+            detailsId = account.details.id,
+            paymentAgreementCode = account.details.paymentAgreementCode,
             status = account.status,
             ownerUrn = account.ownerUrn,
             ledgerId = account.ledgerAccountId,
