@@ -1,6 +1,7 @@
 package app.bloque.sdk.swap
 
 import app.bloque.sdk.core.BaseClient
+import app.bloque.sdk.core.BloqueConfigError
 import app.bloque.sdk.core.BloqueHttpClient
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -20,6 +21,93 @@ class SwapClient constructor(
      * PSE (bank) utilities client
      */
     val pse: PseClient = PseClient(httpClient)
+
+    /**
+     * Colombian bank withdrawal client (Bancolombia)
+     */
+    val colbank: ColBankClient = ColBankClient(httpClient)
+
+    /**
+     * List orders for the current user (as taker)
+     *
+     * Retrieves all swap orders taken by the authenticated user.
+     * Can optionally filter by status, maker, date range, etc.
+     *
+     * Usage (Kotlin):
+     * ```kotlin
+     * // List all orders
+     * val allOrders = session.swap.listOrders()
+     *
+     * // List completed orders only
+     * val completedOrders = session.swap.listOrders(
+     *     ListOrdersParams(status = OrderStatus.COMPLETED)
+     * )
+     *
+     * // List orders with multiple filters
+     * val filteredOrders = session.swap.listOrders(
+     *     ListOrdersParams(
+     *         status = OrderStatus.PENDING,
+     *         after = 1705315200000L
+     *     )
+     * )
+     * ```
+     *
+     * @param params Optional parameters for filtering orders
+     * @return ListOrdersResult containing list of orders
+     */
+    @JvmOverloads
+    fun listOrders(params: ListOrdersParams = ListOrdersParams()): ListOrdersResult {
+        val takerUrn = httpClient.getUrn()
+            ?: throw BloqueConfigError("User URN is not available. Please connect to a session first.")
+
+        val encodedUrn = URLEncoder.encode(takerUrn, "UTF-8")
+        val queryParams = buildListOrdersQueryParams(params)
+        val url = "/api/order/taker/$encodedUrn$queryParams"
+
+        val response = httpClient.get<ListOrdersResponseWire>(path = url)
+
+        return ListOrdersResult(
+            orders = response.orders.map { mapOrderResponse(it) }
+        )
+    }
+
+    private fun buildListOrdersQueryParams(params: ListOrdersParams): String {
+        val queryParts = mutableListOf<String>()
+
+        params.status?.let { queryParts.add("status=${it.value}") }
+        params.makerUrn?.let { queryParts.add("maker_urn=${URLEncoder.encode(it, "UTF-8")}") }
+        params.orderSig?.let { queryParts.add("order_sig=$it") }
+        params.swapSig?.let { queryParts.add("swap_sig=$it") }
+        params.rateSig?.let { queryParts.add("rate_sig=$it") }
+        params.graphId?.let { queryParts.add("graph_id=$it") }
+        params.after?.let { queryParts.add("after=$it") }
+        params.before?.let { queryParts.add("before=$it") }
+
+        return if (queryParts.isEmpty()) "" else "?" + queryParts.joinToString("&")
+    }
+
+    private fun mapOrderResponse(wire: OrderWire): SwapOrder {
+        return SwapOrder(
+            id = wire.id,
+            orderSig = wire.orderSig,
+            rateSig = wire.rateSig,
+            swapSig = wire.swapSig,
+            taker = wire.taker,
+            maker = wire.maker,
+            fromAsset = wire.fromAsset,
+            toAsset = wire.toAsset,
+            fromMedium = wire.fromMedium,
+            toMedium = wire.toMedium,
+            fromAmount = wire.fromAmount,
+            toAmount = wire.toAmount,
+            at = wire.at,
+            graphId = wire.graphId,
+            status = wire.status,
+            metadata = wire.metadata,
+            createdAt = wire.createdAt,
+            updatedAt = wire.updatedAt
+        )
+    }
 
     /**
      * Find available exchange rates between assets

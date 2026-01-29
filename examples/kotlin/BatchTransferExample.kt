@@ -245,6 +245,9 @@ fun main() {
     val crossTypeBatch = session.accounts.batchTransfer(
         BatchTransferParams.builder()
             .reference("batch-cross-type-001")
+            .webhookUrl("https://api.example.com/webhooks/cross-type-batch")
+            .idempotencyKey("cross-type-batch-001")
+            .metadata(mapOf("batch_type" to "cross-type-batch"))
             .operations(
                 // Card to Virtual
                 BatchTransferOperation(
