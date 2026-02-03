@@ -55,9 +55,12 @@ class PseClient internal constructor(
             metadata = params.metadata
         )
 
+        val headers = params.idempotencyKey?.let { mapOf("Idempotency-Key" to it) }
+
         val response = httpClient.put<CreateOrderResponseWire, CreateOrderInputWire>(
             path = "/api/order",
-            body = input
+            body = input,
+            headers = headers
         )
 
         return CreatePseOrderResult(

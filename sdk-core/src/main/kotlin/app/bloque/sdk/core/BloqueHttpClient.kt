@@ -69,9 +69,9 @@ class BloqueHttpClient(
     /**
      * Make a PUT request
      */
-    inline fun <reified T, reified B> put(path: String, body: B): T {
+    inline fun <reified T, reified B> put(path: String, body: B, headers: Map<String, String>? = null): T {
         val jsonBody = json.encodeToString(body)
-        return request("PUT", path, jsonBody)
+        return request("PUT", path, jsonBody, headers)
     }
 
     /**

@@ -257,7 +257,8 @@ data class CreatePseOrderParams @JvmOverloads constructor(
     val type: OrderType? = null,
     val args: PseOrderArgs? = null,
     val nodeId: String? = null,
-    val metadata: Map<String, String>? = null
+    val metadata: Map<String, String>? = null,
+    val idempotencyKey: String? = null
 )
 
 // ============================================
@@ -523,7 +524,9 @@ data class CreateColBankOrderParams @JvmOverloads constructor(
     /** Node ID for execution graph */
     val nodeId: String? = null,
     /** Optional metadata */
-    val metadata: Map<String, String>? = null
+    val metadata: Map<String, String>? = null,
+    /** Idempotency key for the request */
+    val idempotencyKey: String? = null
 ) {
     companion object {
         @JvmStatic
@@ -545,6 +548,7 @@ class CreateColBankOrderParamsBuilder {
     private var args: ColBankOrderArgs? = null
     private var nodeId: String? = null
     private var metadata: Map<String, String>? = null
+    private var idempotencyKey: String? = null
 
     fun rateSig(rateSig: String) = apply { this.rateSig = rateSig }
     fun fromMedium(medium: String) = apply { this.fromMedium = medium }
@@ -557,6 +561,7 @@ class CreateColBankOrderParamsBuilder {
     fun accountUrn(urn: String) = apply { this.args = ColBankOrderArgs(accountUrn = urn) }
     fun nodeId(nodeId: String) = apply { this.nodeId = nodeId }
     fun metadata(metadata: Map<String, String>) = apply { this.metadata = metadata }
+    fun idempotencyKey(key: String) = apply { this.idempotencyKey = key }
 
     fun build(): CreateColBankOrderParams {
         return CreateColBankOrderParams(
@@ -569,7 +574,8 @@ class CreateColBankOrderParamsBuilder {
             type = type,
             args = args,
             nodeId = nodeId,
-            metadata = metadata
+            metadata = metadata,
+            idempotencyKey = idempotencyKey
         )
     }
 }
