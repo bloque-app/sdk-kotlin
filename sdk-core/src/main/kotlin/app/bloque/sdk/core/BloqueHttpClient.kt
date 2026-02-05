@@ -31,10 +31,13 @@ class BloqueHttpClient(
 
     @PublishedApi
     internal val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
+        .connectTimeout(config.timeoutMs, TimeUnit.MILLISECONDS)
+        .readTimeout(config.timeoutMs, TimeUnit.MILLISECONDS)
+        .writeTimeout(config.timeoutMs, TimeUnit.MILLISECONDS)
         .build()
+
+    @PublishedApi
+    internal val retryConfig: RetryConfig = config.retry
 
     @PublishedApi
     internal val baseUrl: String get() = config.baseUrl
@@ -121,34 +124,65 @@ class BloqueHttpClient(
 
         val request = requestBuilder.build()
 
-        try {
-            client.newCall(request).execute().use { response ->
-                val responseBody = response.body?.string()
+        var lastException: Exception? = null
+        var currentDelay = retryConfig.initialDelayMs
 
-                if (!response.isSuccessful) {
-                    throw createBloqueError(
-                        statusCode = response.code,
-                        errorBody = responseBody,
-                        defaultMessage = "API error ${response.code}: $responseBody"
+        for (attempt in 0..retryConfig.maxRetries) {
+            try {
+                client.newCall(request).execute().use { response ->
+                    val responseBody = response.body?.string()
+
+                    if (!response.isSuccessful) {
+                        val error = createBloqueError(
+                            statusCode = response.code,
+                            errorBody = responseBody,
+                            defaultMessage = "API error ${response.code}: $responseBody"
+                        )
+
+                        // Only retry on server errors (5xx), not client errors (4xx)
+                        if (response.code in 500..599 && attempt < retryConfig.maxRetries) {
+                            lastException = error
+                            Thread.sleep(currentDelay)
+                            currentDelay = minOf(
+                                (currentDelay * retryConfig.backoffMultiplier).toLong(),
+                                retryConfig.maxDelayMs
+                            )
+                            return@use // Continue to next attempt
+                        }
+
+                        throw error
+                    }
+
+                    if (responseBody.isNullOrEmpty()) {
+                        throw BloqueSerializationException("Empty response body")
+                    }
+
+                    try {
+                        return json.decodeFromString<T>(responseBody)
+                    } catch (e: Exception) {
+                        throw BloqueSerializationException("Failed to parse response: ${e.message}", e)
+                    }
+                }
+            } catch (e: IOException) {
+                // Retry on network errors
+                lastException = BloqueNetworkError("Network error: ${e.message}", e)
+                if (attempt < retryConfig.maxRetries) {
+                    Thread.sleep(currentDelay)
+                    currentDelay = minOf(
+                        (currentDelay * retryConfig.backoffMultiplier).toLong(),
+                        retryConfig.maxDelayMs
                     )
+                    continue
                 }
-
-                if (responseBody.isNullOrEmpty()) {
-                    throw BloqueSerializationException("Empty response body")
-                }
-
-                try {
-                    return json.decodeFromString<T>(responseBody)
-                } catch (e: Exception) {
-                    throw BloqueSerializationException("Failed to parse response: ${e.message}", e)
-                }
+                throw lastException!!
+            } catch (e: BloqueException) {
+                throw e
+            } catch (e: Exception) {
+                throw BloqueException("Unexpected error: ${e.message}", e)
             }
-        } catch (e: IOException) {
-            throw BloqueNetworkError("Network error: ${e.message}", e)
-        } catch (e: BloqueException) {
-            throw e
-        } catch (e: Exception) {
-            throw BloqueException("Unexpected error: ${e.message}", e)
         }
+
+        // If we get here, all retries failed
+        throw lastException ?: BloqueException("Request failed after ${retryConfig.maxRetries} retries")
     }
 }

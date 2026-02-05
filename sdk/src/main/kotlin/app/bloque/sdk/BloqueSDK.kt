@@ -4,6 +4,7 @@ import app.bloque.sdk.core.AuthConfig
 import app.bloque.sdk.core.BloqueConfig
 import app.bloque.sdk.core.BloqueHttpClient
 import app.bloque.sdk.core.Mode
+import app.bloque.sdk.core.RetryConfig
 import app.bloque.sdk.identity.BusinessRegisterParams
 import app.bloque.sdk.identity.IndividualRegisterParams
 import app.bloque.sdk.identity.OriginsClient
@@ -14,11 +15,16 @@ import app.bloque.sdk.identity.RegisterParams
  *
  * Usage (Kotlin):
  * ```kotlin
- * val bloque = BloqueSDK(
- *     origin = "my-origin",
- *     apiKey = "sk_live_...",
- *     mode = Mode.PRODUCTION
- * )
+ * val bloque = BloqueSDK.builder()
+ *     .origin("my-origin")
+ *     .apiKey("sk_live_...")
+ *     .mode(Mode.PRODUCTION)
+ *     .timeout(10000)
+ *     .retry {
+ *         maxRetries(3)
+ *         initialDelay(1000)
+ *     }
+ *     .build()
  *
  * val session = bloque.connect("nestor")
  * val account = session.accounts.bancolombia.create(
@@ -32,6 +38,11 @@ import app.bloque.sdk.identity.RegisterParams
  *     .origin("my-origin")
  *     .apiKey("sk_live_...")
  *     .mode(Mode.PRODUCTION)
+ *     .timeout(10000)
+ *     .retry(RetryConfig.builder()
+ *         .maxRetries(3)
+ *         .initialDelay(1000)
+ *         .build())
  *     .build();
  *
  * UserSession session = bloque.connect("nestor");
@@ -115,12 +126,16 @@ class BloqueSDK private constructor(
         fun create(
             origin: String,
             apiKey: String,
-            mode: Mode = Mode.PRODUCTION
+            mode: Mode = Mode.PRODUCTION,
+            timeoutMs: Long = 30000,
+            retry: RetryConfig = RetryConfig.DEFAULT
         ): BloqueSDK {
             return Builder()
                 .origin(origin)
                 .apiKey(apiKey)
                 .mode(mode)
+                .timeout(timeoutMs)
+                .retry(retry)
                 .build()
         }
     }
@@ -129,16 +144,40 @@ class BloqueSDK private constructor(
         private var origin: String? = null
         private var apiKey: String? = null
         private var mode: Mode = Mode.PRODUCTION
+        private var timeoutMs: Long = 30000
+        private var retry: RetryConfig = RetryConfig.DEFAULT
 
         fun origin(origin: String) = apply { this.origin = origin }
         fun apiKey(apiKey: String) = apply { this.apiKey = apiKey }
         fun mode(mode: Mode) = apply { this.mode = mode }
 
+        /**
+         * Set request timeout in milliseconds
+         * @param timeoutMs Timeout in milliseconds (default: 30000)
+         */
+        fun timeout(timeoutMs: Long) = apply { this.timeoutMs = timeoutMs }
+
+        /**
+         * Set retry configuration
+         * @param retry RetryConfig instance
+         */
+        fun retry(retry: RetryConfig) = apply { this.retry = retry }
+
+        /**
+         * Set retry configuration using a builder block (Kotlin DSL)
+         * @param block Configuration block for RetryConfig.Builder
+         */
+        fun retry(block: RetryConfig.Builder.() -> Unit) = apply {
+            this.retry = RetryConfig.Builder().apply(block).build()
+        }
+
         fun build(): BloqueSDK {
             val config = BloqueConfig(
                 origin = requireNotNull(origin) { "origin is required" },
                 auth = AuthConfig.ApiKey(requireNotNull(apiKey) { "apiKey is required" }),
-                mode = mode
+                mode = mode,
+                timeoutMs = timeoutMs,
+                retry = retry
             )
             return BloqueSDK(config)
         }
