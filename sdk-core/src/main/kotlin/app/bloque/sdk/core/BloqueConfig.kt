@@ -48,6 +48,12 @@ data class RetryConfig(
          */
         @JvmStatic
         val DEFAULT = RetryConfig()
+
+        /**
+         * Create a builder for RetryConfig (recommended for Java)
+         */
+        @JvmStatic
+        fun builder() = Builder()
     }
 
     class Builder {
