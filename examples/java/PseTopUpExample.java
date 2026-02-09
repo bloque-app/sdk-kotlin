@@ -59,11 +59,11 @@ public class PseTopUpExample {
         System.out.println("\n=== Finding PSE Rates ===");
 
         FindRatesParams ratesParams = new FindRatesParams(
-            "COP/2",                           // fromAsset
-            "DUSD/6",                          // toAsset
+            "COP/2",                          // fromAsset
+            "COPM/2",                          // toAsset
             Arrays.asList("pse"),              // fromMediums
             Collections.singletonList("kusama"), // toMediums
-            "1000000",                         // amountSrc (1,000,000 COP)
+            "1000000",                         // amountSrc (10.000 COP)
             null,                              // amountDst
             null,                              // sort
             null                               // sortBy
@@ -98,7 +98,7 @@ public class PseTopUpExample {
                 "user@example.com",            // customerEmail
                 "CC",                          // userLegalIdType
                 "123456789",                   // userLegalId
-                new CustomerData("John Doe")   // customerData
+                new CustomerData("John Doe", "3023348486") // customerData (name, phone)
             ),
             null,                              // nodeId
             null                               // metadata

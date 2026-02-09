@@ -84,7 +84,9 @@ class PseClient internal constructor(
             customerEmail = args.customerEmail,
             userLegalIdType = args.userLegalIdType,
             userLegalId = args.userLegalId,
-            customerData = args.customerData?.let { CustomerDataWire(fullName = it.fullName) }
+            customerData = args.customerData?.let {
+                CustomerDataWire(fullName = it.fullName, phoneNumber = it.phoneNumber)
+            }
         )
     }
 

@@ -236,7 +236,8 @@ data class DepositInformation(
 )
 
 data class CustomerData(
-    val fullName: String
+    val fullName: String,
+    val phoneNumber: String
 )
 
 data class PseOrderArgs @JvmOverloads constructor(
@@ -335,7 +336,8 @@ internal data class DepositInformationWire(
 
 @Serializable
 internal data class CustomerDataWire(
-    @SerialName("full_name") val fullName: String
+    @SerialName("full_name") val fullName: String,
+    @SerialName("phone_number") val phoneNumber: String
 )
 
 @Serializable
