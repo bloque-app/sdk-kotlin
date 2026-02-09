@@ -98,7 +98,7 @@ public class PseTopUpExample {
                 "user@example.com",            // customerEmail
                 "CC",                          // userLegalIdType
                 "123456789",                   // userLegalId
-                new CustomerData("John Doe", "3023348486") // customerData (name, phone)
+                new CustomerData("John Doe", "3012448426") // customerData (name, phone)
             ),
             null,                              // nodeId
             null                               // metadata
