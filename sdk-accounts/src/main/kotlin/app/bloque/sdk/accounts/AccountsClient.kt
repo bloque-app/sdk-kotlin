@@ -112,6 +112,7 @@ class AccountsClient constructor(
             params.after?.let { parts.add("after=$it") }
             params.reference?.let { parts.add("reference=$it") }
             params.direction?.let { parts.add("direction=$it") }
+            params.collapsedView?.let { parts.add("collapsed_view=$it") }
             append("?")
             append(parts.joinToString("&"))
         }

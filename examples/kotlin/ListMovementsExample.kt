@@ -15,26 +15,40 @@ fun main() {
 
     val session: UserSession = bloque.connect("mock-user")
 
-    // Create params for listing movements
-    val params = ListMovementsParams(
-        "did:bloque:account:card:usr-mockUser:crd-mockCard", // account URN (mock)
-        "KSM/12", // asset (required)
-        10, // limit
-        null, // before
-        null, // after
-        null, // reference
-        "in" // direction (only incoming)
+    val accountUrn = "did:bloque:account:card:usr-mockUser:crd-mockCard"
+
+    // ============================================
+    // Example 1: List movements (standard)
+    // ============================================
+    println("=== Standard movements ===")
+
+    val movements = session.accounts.movements(
+        ListMovementsParams(
+            urn = accountUrn,
+            asset = "KSM/12",
+            limit = 10,
+            direction = "in"
+        )
     )
 
-    val movements: List<Movement> = session.accounts.movements(params)
-
     movements.forEach { m ->
-        println("Amount: ${m.amount}")
-        println("Asset: ${m.asset}")
-        println("Direction: ${m.direction}")
-        println("From: ${m.fromAccountId}")
-        println("To: ${m.toAccountId}") // may be null
-        println("Reference: ${m.reference}")
-        println("Created: ${m.createdAt}")
+        println("  ${m.direction} | ${m.amount} ${m.asset} | ref=${m.reference} | ${m.createdAt}")
+    }
+
+    // ============================================
+    // Example 2: List movements with collapsed view
+    // ============================================
+    println("\n=== Collapsed view (pending + confirmed merged) ===")
+
+    val collapsed = session.accounts.movements(
+        ListMovementsParams(
+            urn = accountUrn,
+            asset = "KSM/12",
+            collapsedView = true
+        )
+    )
+
+    collapsed.forEach { m ->
+        println("  ${m.direction} | ${m.amount} ${m.asset} | ref=${m.reference} | ${m.createdAt}")
     }
 }

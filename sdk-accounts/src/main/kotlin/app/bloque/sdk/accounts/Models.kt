@@ -57,7 +57,19 @@ data class BancolombiaDetails(
     /** Unique 5-digit reference code for the virtual account */
     @SerialName("reference_code") val referenceCode: String? = null,
     /** Payment agreement code for Bancolombia transactions */
-    @SerialName("payment_agreement_code") val paymentAgreementCode: String? = null
+    @SerialName("payment_agreement_code") val paymentAgreementCode: String? = null,
+    /** Bank account number */
+    @SerialName("bank_account_number") val bankAccountNumber: String? = null,
+    /** Bank account type (savings or checking) */
+    @SerialName("bank_account_type") val bankAccountType: String? = null,
+    /** Bank account holder name */
+    @SerialName("bank_account_holder_name") val bankAccountHolderName: String? = null,
+    /** Bank account holder ID type (e.g. NIT, CC) */
+    @SerialName("bank_account_holder_id_type") val bankAccountHolderIdType: String? = null,
+    /** Bank account holder ID value */
+    @SerialName("bank_account_holder_id_value") val bankAccountHolderIdValue: String? = null,
+    /** Available deposit networks (e.g. bancolombia_a_la_mano, bancolombia_atm) */
+    val network: List<String>? = null
 )
 
 /**
@@ -72,6 +84,18 @@ data class BancolombiaAccount @JvmOverloads constructor(
     val detailsId: String? = null,
     /** Payment agreement code for Bancolombia transactions */
     val paymentAgreementCode: String? = null,
+    /** Bank account number */
+    val bankAccountNumber: String? = null,
+    /** Bank account type (savings or checking) */
+    val bankAccountType: String? = null,
+    /** Bank account holder name */
+    val bankAccountHolderName: String? = null,
+    /** Bank account holder ID type (e.g. NIT, CC) */
+    val bankAccountHolderIdType: String? = null,
+    /** Bank account holder ID value */
+    val bankAccountHolderIdValue: String? = null,
+    /** Available deposit networks (e.g. bancolombia_a_la_mano, bancolombia_atm) */
+    val network: List<String>? = null,
     val status: String,
     val ownerUrn: String,
     val ledgerId: String? = null,
@@ -335,7 +359,9 @@ data class ListMovementsParams @JvmOverloads constructor(
     val before: String? = null,
     val after: String? = null,
     val reference: String? = null,
-    val direction: String? = null
+    val direction: String? = null,
+    /** When true, collapses related movements (e.g. pending + confirmed) into a single entry showing the latest state */
+    val collapsedView: Boolean? = null
 )
 
 @Serializable

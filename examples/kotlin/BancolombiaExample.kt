@@ -40,6 +40,11 @@ fun main() {
     println("Reference Code: ${simpleAccount.referenceCode}")
     println("Details ID: ${simpleAccount.detailsId}")
     println("Payment Agreement Code: ${simpleAccount.paymentAgreementCode}")
+    println("Bank Account Number: ${simpleAccount.bankAccountNumber}")
+    println("Bank Account Type: ${simpleAccount.bankAccountType}")
+    println("Bank Account Holder: ${simpleAccount.bankAccountHolderName}")
+    println("Holder ID: ${simpleAccount.bankAccountHolderIdType} ${simpleAccount.bankAccountHolderIdValue}")
+    println("Networks: ${simpleAccount.network}")
     println("Status: ${simpleAccount.status}")
     println("Owner: ${simpleAccount.ownerUrn}")
 
