@@ -300,8 +300,8 @@ data class ExecutionResult(
 
 data class ExecutionResultDetails(
     val status: String,
-    val name: String,
-    val description: String,
+    val name: String?,
+    val description: String?,
     val how: ExecutionHow?,
     val callbackToken: String?
 )
@@ -398,8 +398,8 @@ internal data class ExecutionResultWire(
 @Serializable
 internal data class ExecutionResultDetailsWire(
     val status: String,
-    val name: String,
-    val description: String,
+    val name: String? = null,
+    val description: String? = null,
     val how: ExecutionHowWire? = null,
     @SerialName("callback_token") val callbackToken: String? = null
 )
