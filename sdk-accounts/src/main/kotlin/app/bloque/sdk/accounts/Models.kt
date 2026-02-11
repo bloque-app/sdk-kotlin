@@ -361,7 +361,11 @@ data class ListMovementsParams @JvmOverloads constructor(
     val reference: String? = null,
     val direction: String? = null,
     /** When true, collapses related movements (e.g. pending + confirmed) into a single entry showing the latest state */
-    val collapsedView: Boolean? = null
+    val collapsedView: Boolean? = null,
+    /** Filter by pocket: 'main' for confirmed movements, 'pending' for pending movements */
+    val pocket: String? = null,
+    /** Pagination token for fetching next page */
+    val next: String? = null
 )
 
 @Serializable
@@ -374,13 +378,30 @@ data class Movement(
     val reference: String,
     @SerialName("rail_name") val railName: String,
     val details: Map<String, kotlinx.serialization.json.JsonElement>? = null,
-    @SerialName("created_at") val createdAt: String
+    @SerialName("created_at") val createdAt: String,
+    /** Settlement status: pending, cancelled, confirmed, settled, failed, or ignored */
+    val status: String
 )
 
 /**
  * Alias for backward compatibility
  */
 typealias CardMovement = Movement
+
+/**
+ * Paginated response for movements
+ */
+@Serializable
+data class PagedMovements(
+    /** Array of movements in this page */
+    val data: List<Movement>,
+    /** Number of results in this page */
+    @SerialName("page_size") val pageSize: Int,
+    /** Whether more results are available */
+    @SerialName("has_more") val hasMore: Boolean,
+    /** Pagination token for next page (if hasMore is true) */
+    val next: String? = null
+)
 
 // ============================================
 // Batch Transfer Models

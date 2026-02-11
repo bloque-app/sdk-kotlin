@@ -96,14 +96,12 @@ class AccountsClient constructor(
      * Get account movements/transactions
      *
      * Works with any account type (card, virtual, bancolombia, polygon).
+     * Returns paginated results with status field for each movement.
      *
      * @param params Parameters with account URN, asset, and optional filters
-     * @return List of movements/transactions
+     * @return Paginated movements with data, page_size, has_more, and next token
      */
-    fun movements(params: ListMovementsParams): List<Movement> {
-        @Serializable
-        data class MovementsResponse(val transactions: List<Movement>)
-
+    fun movements(params: ListMovementsParams): PagedMovements {
         val queryParams = buildString {
             val parts = mutableListOf<String>()
             parts.add("asset=${params.asset}")
@@ -113,15 +111,17 @@ class AccountsClient constructor(
             params.reference?.let { parts.add("reference=$it") }
             params.direction?.let { parts.add("direction=$it") }
             params.collapsedView?.let { parts.add("collapsed_view=$it") }
+            params.pocket?.let { parts.add("pocket=$it") }
+            params.next?.let { parts.add("next=$it") }
             append("?")
             append(parts.joinToString("&"))
         }
 
-        val response = httpClient.get<MovementsResponse>(
+        val response = httpClient.get<PagedMovements>(
             path = "/api/accounts/${params.urn}/movements$queryParams"
         )
 
-        return response.transactions
+        return response
     }
 
     /**
