@@ -19,6 +19,8 @@ import java.util.List;
  * This demonstrates how to:
  * 1. Find available exchange rates (e.g. USDC to COP)
  * 2. List available PSE banks
+ *
+ * For order creation with webhookUrl support, see PseTopUpExample.java
  */
 public class SwapExample {
 

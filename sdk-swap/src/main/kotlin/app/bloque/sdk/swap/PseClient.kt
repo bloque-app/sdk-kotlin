@@ -52,7 +52,8 @@ class PseClient internal constructor(
             amountDst = if (orderType == OrderType.DST) params.amountDst else null,
             args = params.args?.let { mapArgsToWire(it) },
             nodeId = params.nodeId,
-            metadata = params.metadata
+            metadata = params.metadata,
+            webhookUrl = params.webhookUrl
         )
 
         val headers = params.idempotencyKey?.let { mapOf("Idempotency-Key" to it) }

@@ -259,7 +259,9 @@ data class CreatePseOrderParams @JvmOverloads constructor(
     val args: PseOrderArgs? = null,
     val nodeId: String? = null,
     val metadata: Map<String, String>? = null,
-    val idempotencyKey: String? = null
+    val idempotencyKey: String? = null,
+    /** Webhook URL to receive order status update notifications */
+    val webhookUrl: String? = null
 )
 
 // ============================================
@@ -326,7 +328,8 @@ internal data class CreateOrderInputWire(
     @SerialName("amount_dst") val amountDst: String? = null,
     val args: PseOrderArgsWire? = null,
     @SerialName("node_id") val nodeId: String? = null,
-    val metadata: Map<String, String>? = null
+    val metadata: Map<String, String>? = null,
+    @SerialName("webhook_url") val webhookUrl: String? = null
 )
 
 @Serializable
@@ -528,7 +531,9 @@ data class CreateColBankOrderParams @JvmOverloads constructor(
     /** Optional metadata */
     val metadata: Map<String, String>? = null,
     /** Idempotency key for the request */
-    val idempotencyKey: String? = null
+    val idempotencyKey: String? = null,
+    /** Webhook URL to receive order status update notifications */
+    val webhookUrl: String? = null
 ) {
     companion object {
         @JvmStatic
@@ -551,6 +556,7 @@ class CreateColBankOrderParamsBuilder {
     private var nodeId: String? = null
     private var metadata: Map<String, String>? = null
     private var idempotencyKey: String? = null
+    private var webhookUrl: String? = null
 
     fun rateSig(rateSig: String) = apply { this.rateSig = rateSig }
     fun fromMedium(medium: String) = apply { this.fromMedium = medium }
@@ -564,6 +570,7 @@ class CreateColBankOrderParamsBuilder {
     fun nodeId(nodeId: String) = apply { this.nodeId = nodeId }
     fun metadata(metadata: Map<String, String>) = apply { this.metadata = metadata }
     fun idempotencyKey(key: String) = apply { this.idempotencyKey = key }
+    fun webhookUrl(url: String) = apply { this.webhookUrl = url }
 
     fun build(): CreateColBankOrderParams {
         return CreateColBankOrderParams(
@@ -577,7 +584,8 @@ class CreateColBankOrderParamsBuilder {
             args = args,
             nodeId = nodeId,
             metadata = metadata,
-            idempotencyKey = idempotencyKey
+            idempotencyKey = idempotencyKey,
+            webhookUrl = webhookUrl
         )
     }
 }
@@ -621,5 +629,6 @@ internal data class CreateColBankOrderInputWire(
     val args: ColBankOrderArgsWire? = null,
     @SerialName("deposit_information") val depositInformation: ColBankDepositInformationWire,
     @SerialName("node_id") val nodeId: String? = null,
-    val metadata: Map<String, String>? = null
+    val metadata: Map<String, String>? = null,
+    @SerialName("webhook_url") val webhookUrl: String? = null
 )
