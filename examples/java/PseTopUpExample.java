@@ -101,7 +101,9 @@ public class PseTopUpExample {
                 new CustomerData("John Doe", "3012448426") // customerData (name, phone)
             ),
             null,                              // nodeId
-            null                               // metadata
+            null,                              // metadata
+            null,                              // idempotencyKey
+            "https://myapp.com/webhooks/order-status" // webhookUrl
         );
 
         CreatePseOrderResult result = session.getSwap().getPse().create(orderParams);

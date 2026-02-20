@@ -81,7 +81,8 @@ class ColBankClient internal constructor(
             args = params.args?.let { mapArgsToWire(it) },
             depositInformation = mapDepositInfoToWire(params.depositInformation),
             nodeId = params.nodeId,
-            metadata = params.metadata
+            metadata = params.metadata,
+            webhookUrl = params.webhookUrl
         )
 
         val response = httpClient.put<CreateOrderResponseWire, CreateColBankOrderInputWire>(

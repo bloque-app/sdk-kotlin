@@ -162,9 +162,39 @@ fun main() {
     }
 
     // ============================================
-    // Step 5: Specify destination amount (DST type)
+    // Step 5: Create order with webhook notifications
     // ============================================
-    println("\n=== Step 5: Specify Destination Amount ===")
+    println("\n=== Step 5: Create Order with Webhook ===")
+
+    val webhookResult = session.swap.colbank.create(
+        CreateColBankOrderParams(
+            rateSig = rate.sig,
+            fromMedium = "kusama",
+            toMedium = "bancolombia",
+            amountSrc = "10000000",
+            type = OrderType.SRC,
+            args = ColBankOrderArgs(
+                accountUrn = "did:bloque:account:card:usr-xxxxx:crd-xxxxx"
+            ),
+            depositInformation = ColBankDepositInformation(
+                bankAccountType = BankAccountType.SAVINGS,
+                bankAccountNumber = "57440088718",
+                bankAccountHolderName = "David Barinas",
+                bankAccountHolderIdentificationType = IdentificationType.CC,
+                bankAccountHolderIdentificationValue = "1055228746"
+            ),
+            webhookUrl = "https://myapp.com/webhooks/order-status"
+        )
+    )
+
+    println("Order with webhook created!")
+    println("Order ID: ${webhookResult.order.id}")
+    println("Status updates will be sent to: https://myapp.com/webhooks/order-status")
+
+    // ============================================
+    // Step 6: Specify destination amount (DST type)
+    // ============================================
+    println("\n=== Step 6: Specify Destination Amount ===")
 
     val dstResult = session.swap.colbank.create(
         CreateColBankOrderParams(
@@ -191,9 +221,9 @@ fun main() {
     println("Will pay: ${dstResult.order.fromAmount} COPM")
 
     // ============================================
-    // Step 6: List orders as taker
+    // Step 7: List orders as taker
     // ============================================
-    println("\n=== Step 6: List Orders ===")
+    println("\n=== Step 7: List Orders ===")
 
     // List all orders
     val allOrders = session.swap.listOrders()
