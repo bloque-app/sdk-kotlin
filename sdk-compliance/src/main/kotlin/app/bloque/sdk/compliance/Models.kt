@@ -26,6 +26,8 @@ enum class KycVerificationStatus {
  */
 data class KycVerificationParams @JvmOverloads constructor(
     val urn: String,
+    val type: String = "kyc",
+    val accompliceType: String = "person",
     val webhookUrl: String? = null,
     val idempotencyKey: String? = null
 )
@@ -53,17 +55,19 @@ data class KycVerificationResponse @JvmOverloads constructor(
 @Serializable
 internal data class KycVerificationRequestWire(
     val urn: String,
+    val type: String = "kyc",
+    @SerialName("accomplice_type") val accompliceType: String = "person",
     @SerialName("webhook_url") val webhookUrl: String? = null
 )
 
+/** Direct API response (no result wrapper) for start and get */
 @Serializable
-internal data class KycVerificationResponseWire(
-    val result: KycVerificationResultWire
-)
-
-@Serializable
-internal data class KycVerificationResultWire(
+internal data class KycVerificationResponseDirect(
     val status: String,
-    val url: String,
-    @SerialName("completed_at") val completedAt: String? = null
+    val url: String? = null,
+    @SerialName("verification_url") val verificationUrl: String? = null,
+    @SerialName("completed_at") val completedAt: String? = null,
+    val type: String? = null,
+    val level: String? = null,
+    val provider: String? = null
 )

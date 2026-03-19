@@ -137,8 +137,8 @@ fun main() {
         )
     )
 
-    println("Found ${movements.size} movements:")
-    movements.forEach { movement ->
+    println("Found ${movements.data.size} movements:")
+    movements.data.forEach { movement ->
         println("  - Reference: ${movement.reference}")
         println("    Amount: ${movement.amount} ${movement.asset}")
         println("    Direction: ${movement.direction}")

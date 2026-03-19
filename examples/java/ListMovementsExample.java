@@ -5,6 +5,7 @@ import app.bloque.sdk.core.Mode;
 import app.bloque.sdk.UserSession;
 import app.bloque.sdk.accounts.ListMovementsParams;
 import app.bloque.sdk.accounts.Movement;
+import app.bloque.sdk.accounts.PagedMovements;
 import java.util.List;
 
 public class ListMovementsExample {
@@ -28,7 +29,8 @@ public class ListMovementsExample {
             "in" // direction (only incoming)
         );
 
-        List<Movement> movements = session.getAccounts().movements(params);
+        PagedMovements result = session.getAccounts().movements(params);
+        List<Movement> movements = result.getData();
 
         movements.forEach(m -> {
             System.out.println("Amount: " + m.getAmount());
