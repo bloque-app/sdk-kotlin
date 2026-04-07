@@ -64,6 +64,11 @@ class AccountsClient constructor(
     val polygon: PolygonClient = PolygonClient(httpClient)
 
     /**
+     * BRE-B key account operations
+     */
+    val breb: BrebClient = BrebClient(httpClient)
+
+    /**
      * Transfer funds between accounts
      *
      * @param params Transfer parameters (source, destination, amount, asset)

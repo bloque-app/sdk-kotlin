@@ -274,6 +274,159 @@ data class UpdateBancolombiaMetadataParams constructor(
 )
 
 // ============================================
+// BRE-B Account Models
+// ============================================
+
+@Serializable
+enum class BrebKeyType {
+    ID,
+    PHONE,
+    EMAIL,
+    ALPHA,
+    BCODE
+}
+
+data class BrebOperationError constructor(
+    val code: String?,
+    val message: String
+)
+
+data class BrebOperationResult<T> constructor(
+    val data: T?,
+    val error: BrebOperationError?
+)
+
+data class CreateBrebKeyParams @JvmOverloads constructor(
+    val keyType: BrebKeyType,
+    val key: String,
+    val displayName: String? = null,
+    val ledgerId: String? = null,
+    val webhookUrl: String? = null,
+    val metadata: Map<String, Any?>? = null
+)
+
+data class ResolveBrebKeyParams constructor(
+    val keyType: BrebKeyType,
+    val key: String
+)
+
+data class DeleteBrebKeyParams constructor(
+    val accountUrn: String
+)
+
+data class SuspendBrebKeyParams constructor(
+    val accountUrn: String
+)
+
+data class ActivateBrebKeyParams constructor(
+    val accountUrn: String
+)
+
+data class DeleteBrebKeyResult constructor(
+    val deleted: Boolean,
+    val accountUrn: String,
+    val keyId: String,
+    val status: String
+)
+
+data class SuspendBrebKeyResult constructor(
+    val accountUrn: String,
+    val keyId: String,
+    val keyStatus: String,
+    val status: String
+)
+
+data class ActivateBrebKeyResult constructor(
+    val accountUrn: String,
+    val keyId: String,
+    val keyStatus: String,
+    val status: String
+)
+
+@Serializable
+data class BrebKeyInfo(
+    @SerialName("key_type") val keyType: BrebKeyType,
+    @SerialName("key_value") val keyValue: String
+)
+
+@Serializable
+data class BrebDetails(
+    val id: String,
+    @SerialName("remote_key_id") val remoteKeyId: String,
+    @SerialName("account_id") val accountId: String,
+    val key: BrebKeyInfo,
+    @SerialName("display_name") val displayName: String? = null,
+    val status: String,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
+    @SerialName("raw_response") val rawResponse: JsonElement = JsonObject(emptyMap())
+)
+
+data class BrebKeyAccount @JvmOverloads constructor(
+    val id: String,
+    val urn: String,
+    val ownerUrn: String,
+    val medium: String = "breb",
+    val remoteKeyId: String,
+    val accountId: String,
+    val keyType: BrebKeyType,
+    val key: String,
+    val displayName: String? = null,
+    val status: String,
+    val ledgerId: String? = null,
+    val webhookUrl: String? = null,
+    val metadata: JsonElement = JsonObject(emptyMap()),
+    val details: BrebDetails,
+    val balance: Map<String, TokenBalance>? = null
+)
+
+@Serializable
+data class BrebResolvedKeyInfo(
+    @SerialName("keyType") val keyType: BrebKeyType,
+    @SerialName("keyValue") val keyValue: String
+)
+
+@Serializable
+data class BrebResolvedOwner(
+    @SerialName("identificationType") val identificationType: String? = null,
+    @SerialName("identificationNumber") val identificationNumber: String? = null,
+    @SerialName("firstName") val firstName: String? = null,
+    @SerialName("secondName") val secondName: String? = null,
+    @SerialName("firstLastName") val firstLastName: String? = null,
+    @SerialName("secondLastName") val secondLastName: String? = null,
+    val type: String? = null,
+    @SerialName("businessName") val businessName: String? = null,
+    val name: String? = null
+)
+
+@Serializable
+data class BrebResolvedParticipant(
+    val name: String? = null,
+    @SerialName("identificationNumber") val identificationNumber: String? = null
+)
+
+@Serializable
+data class BrebResolvedAccount(
+    @SerialName("accountNumber") val accountNumber: String? = null,
+    @SerialName("accountType") val accountType: String? = null
+)
+
+@Serializable
+data class BrebResolvedKey(
+    val id: String,
+    @SerialName("resolutionId") val resolutionId: String,
+    @SerialName("customerId") val customerId: String,
+    val key: BrebResolvedKeyInfo,
+    val owner: BrebResolvedOwner? = null,
+    val participant: BrebResolvedParticipant? = null,
+    val account: BrebResolvedAccount? = null,
+    @SerialName("receptorNode") val receptorNode: String? = null,
+    @SerialName("resolvedAt") val resolvedAt: String? = null,
+    @SerialName("expiresAt") val expiresAt: String? = null,
+    val raw: JsonElement = JsonObject(emptyMap())
+)
+
+// ============================================
 // Transfer Models
 // ============================================
 
