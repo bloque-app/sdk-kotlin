@@ -28,6 +28,11 @@ class SwapClient constructor(
     val colbank: ColBankClient = ColBankClient(httpClient)
 
     /**
+     * BRE-B withdrawal client
+     */
+    val breb: BrebClient = BrebClient(httpClient)
+
+    /**
      * List orders for the current user (as taker)
      *
      * Retrieves all swap orders taken by the authenticated user.
