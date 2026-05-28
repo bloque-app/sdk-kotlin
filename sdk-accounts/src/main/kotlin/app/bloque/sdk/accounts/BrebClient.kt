@@ -54,7 +54,7 @@ class BrebClient constructor(
 
     @Serializable
     private data class ResolveBrebKeyRequest(
-        @SerialName("key_type") val keyType: BrebKeyType,
+        @SerialName("key_type") val keyType: BrebKeyType? = null,
         val key: String
     )
 
@@ -135,7 +135,7 @@ class BrebClient constructor(
                 webhookUrl = params.webhookUrl,
                 ledgerAccountId = params.ledgerId,
                 input = buildJsonObject {
-                    put("key_type", params.keyType.name)
+                    params.keyType?.let { put("key_type", it.name) }
                     put("key_value", params.key)
                     params.displayName?.let { put("display_name", it) }
                 },

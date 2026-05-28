@@ -297,7 +297,7 @@ data class BrebOperationResult<T> constructor(
 )
 
 data class CreateBrebKeyParams @JvmOverloads constructor(
-    val keyType: BrebKeyType,
+    val keyType: BrebKeyType? = null,
     val key: String,
     val displayName: String? = null,
     val ledgerId: String? = null,
@@ -306,7 +306,7 @@ data class CreateBrebKeyParams @JvmOverloads constructor(
 )
 
 data class ResolveBrebKeyParams constructor(
-    val keyType: BrebKeyType,
+    val keyType: BrebKeyType? = null,
     val key: String
 )
 
@@ -345,7 +345,7 @@ data class ActivateBrebKeyResult constructor(
 
 @Serializable
 data class BrebKeyInfo(
-    @SerialName("key_type") val keyType: BrebKeyType,
+    @SerialName("key_type") val keyType: BrebKeyType? = null,
     @SerialName("key_value") val keyValue: String
 )
 
@@ -369,7 +369,7 @@ data class BrebKeyAccount @JvmOverloads constructor(
     val medium: String = "breb",
     val remoteKeyId: String,
     val accountId: String,
-    val keyType: BrebKeyType,
+    val keyType: BrebKeyType? = null,
     val key: String,
     val displayName: String? = null,
     val status: String,
@@ -382,7 +382,7 @@ data class BrebKeyAccount @JvmOverloads constructor(
 
 @Serializable
 data class BrebResolvedKeyInfo(
-    @SerialName("keyType") val keyType: BrebKeyType,
+    @SerialName("keyType") val keyType: BrebKeyType? = null,
     @SerialName("keyValue") val keyValue: String
 )
 
