@@ -274,6 +274,115 @@ data class CreatePseOrderResult(
     val requestId: String
 )
 
+// ============================================
+// BRE-B Payout Order - Request Models
+// ============================================
+
+data class BrebDepositInformation(
+    val resolutionId: String
+)
+
+data class BrebOrderArgs(
+    val sourceAccountUrn: String
+)
+
+data class CreateBrebOrderParams @JvmOverloads constructor(
+    val rateSig: String,
+    val depositInformation: BrebDepositInformation,
+    val args: BrebOrderArgs,
+    val amountSrc: String? = null,
+    val amountDst: String? = null,
+    val type: OrderType? = null,
+    val nodeId: String? = null,
+    val metadata: Map<String, String>? = null,
+    val idempotencyKey: String? = null,
+    val webhookUrl: String? = null
+) {
+    companion object {
+        @JvmStatic
+        fun builder() = CreateBrebOrderParamsBuilder()
+    }
+}
+
+class CreateBrebOrderParamsBuilder {
+    private var rateSig: String? = null
+    private var depositInformation: BrebDepositInformation? = null
+    private var args: BrebOrderArgs? = null
+    private var amountSrc: String? = null
+    private var amountDst: String? = null
+    private var type: OrderType? = null
+    private var nodeId: String? = null
+    private var metadata: Map<String, String>? = null
+    private var idempotencyKey: String? = null
+    private var webhookUrl: String? = null
+
+    fun rateSig(rateSig: String) = apply { this.rateSig = rateSig }
+    fun depositInformation(info: BrebDepositInformation) = apply { this.depositInformation = info }
+    fun resolutionId(resolutionId: String) = apply {
+        this.depositInformation = BrebDepositInformation(resolutionId)
+    }
+    fun args(args: BrebOrderArgs) = apply { this.args = args }
+    fun sourceAccountUrn(urn: String) = apply { this.args = BrebOrderArgs(urn) }
+    fun amountSrc(amount: String) = apply { this.amountSrc = amount }
+    fun amountDst(amount: String) = apply { this.amountDst = amount }
+    fun type(type: OrderType) = apply { this.type = type }
+    fun nodeId(nodeId: String) = apply { this.nodeId = nodeId }
+    fun metadata(metadata: Map<String, String>) = apply { this.metadata = metadata }
+    fun idempotencyKey(key: String) = apply { this.idempotencyKey = key }
+    fun webhookUrl(url: String) = apply { this.webhookUrl = url }
+
+    fun build(): CreateBrebOrderParams {
+        return CreateBrebOrderParams(
+            rateSig = requireNotNull(rateSig) { "rateSig is required" },
+            depositInformation = requireNotNull(depositInformation) { "depositInformation is required" },
+            args = requireNotNull(args) { "args is required" },
+            amountSrc = amountSrc,
+            amountDst = amountDst,
+            type = type,
+            nodeId = nodeId,
+            metadata = metadata,
+            idempotencyKey = idempotencyKey,
+            webhookUrl = webhookUrl
+        )
+    }
+}
+
+data class CreateBrebOrderResult(
+    val order: SwapOrder,
+    val execution: ExecutionResult?,
+    val requestId: String
+)
+
+// ============================================
+// BRE-B Payout Order - Wire Models
+// ============================================
+
+@Serializable
+internal data class BrebOrderArgsWire(
+    @SerialName("account_urn") val accountUrn: String
+)
+
+@Serializable
+internal data class BrebDepositInformationWire(
+    @SerialName("resolution_id") val resolutionId: String
+)
+
+@Serializable
+internal data class CreateBrebOrderInputWire(
+    @SerialName("taker_urn") val takerUrn: String,
+    val type: String,
+    @SerialName("rate_sig") val rateSig: String,
+    @SerialName("from_medium") val fromMedium: String = "kusama",
+    @SerialName("to_medium") val toMedium: String = "breb",
+    @SerialName("deposit_information") val depositInformation: BrebDepositInformationWire,
+    @SerialName("amount_src") val amountSrc: String? = null,
+    @SerialName("amount_dst") val amountDst: String? = null,
+    val args: BrebOrderArgsWire,
+    @SerialName("node_id") val nodeId: String? = null,
+    val metadata: Map<String, String>? = null,
+    @SerialName("webhook_url") val webhookUrl: String? = null
+)
+
 data class SwapOrder(
     val id: String,
     val orderSig: String,

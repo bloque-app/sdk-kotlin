@@ -1,5 +1,7 @@
 package app.bloque.sdk.core
 
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -8,19 +10,36 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 import java.util.concurrent.TimeUnit
-import kotlin.reflect.KClass
+
+private const val EXCHANGE_REFRESH_BUFFER_MS = 60_000L
+
+@Serializable
+internal data class ExchangeRequestWire(
+    val key: String,
+    val scopes: List<String>? = null
+)
+
+@Serializable
+internal data class ExchangeResponseWire(
+    @SerialName("access_token") val accessToken: String,
+    @SerialName("expires_in") val expiresIn: Int,
+    @SerialName("token_type") val tokenType: String
+)
 
 /**
  * HTTP client for making API requests
  */
 class BloqueHttpClient(
-    private val config: BloqueConfig
+    @PublishedApi internal val config: BloqueConfig
 ) {
     @PublishedApi
     internal var accessToken: String? = null
         private set
 
     private var urn: String? = null
+    private var resolvedOrigin: String? = config.origin
+
+    private var exchangeExpiry: Long = 0
 
     @PublishedApi
     internal val json = Json {
@@ -42,7 +61,9 @@ class BloqueHttpClient(
     @PublishedApi
     internal val baseUrl: String get() = config.baseUrl
 
-    val origin: String get() = config.origin
+    val auth: AuthConfig get() = config.auth
+
+    val origin: String get() = resolvedOrigin ?: throw BloqueConfigError("origin not yet resolved — call connect() first")
 
     fun getUrn(): String? = urn
 
@@ -52,6 +73,44 @@ class BloqueHttpClient(
 
     fun updateUrn(urn: String) {
         this.urn = urn
+    }
+
+    fun setOrigin(origin: String) {
+        this.resolvedOrigin = origin
+    }
+
+    /**
+     * Exchange the sk_ secret key for a short-lived JWT.
+     * Thread-safe: concurrent callers block on the same synchronized monitor.
+     * Auto-refreshes when the cached JWT is within [EXCHANGE_REFRESH_BUFFER_MS] of expiry.
+     */
+    fun ensureExchanged() {
+        if (config.auth !is AuthConfig.ApiKey) return
+        val now = System.currentTimeMillis()
+        if (accessToken != null && now < exchangeExpiry - EXCHANGE_REFRESH_BUFFER_MS) return
+
+        synchronized(this) {
+            val nowInner = System.currentTimeMillis()
+            if (accessToken != null && nowInner < exchangeExpiry - EXCHANGE_REFRESH_BUFFER_MS) return
+
+            val apiKeyAuth = config.auth as AuthConfig.ApiKey
+            val exchangeBody = json.encodeToString(
+                ExchangeRequestWire(key = apiKeyAuth.secretKey, scopes = apiKeyAuth.scopes)
+            )
+
+            val response = request<ExchangeResponseWire>(
+                method = "POST",
+                path = "/api/api-keys/exchange",
+                body = exchangeBody,
+                skipExchange = true
+            )
+
+            require(response.accessToken.isNotBlank()) { "Exchange returned empty access_token" }
+            require(response.expiresIn > 0) { "Exchange returned invalid expires_in: ${response.expiresIn}" }
+
+            this.accessToken = response.accessToken
+            this.exchangeExpiry = nowInner + (response.expiresIn * 1000L)
+        }
     }
 
     /**
@@ -72,9 +131,22 @@ class BloqueHttpClient(
     /**
      * Make a PUT request
      */
-    inline fun <reified T, reified B> put(path: String, body: B, headers: Map<String, String>? = null): T {
+    inline fun <reified T, reified B> put(
+        path: String,
+        body: B,
+        headers: Map<String, String>? = null,
+        retryConfigOverride: RetryConfig? = null,
+        retryOnConnectionFailure: Boolean = true
+    ): T {
         val jsonBody = json.encodeToString(body)
-        return request("PUT", path, jsonBody, headers)
+        return request(
+            "PUT",
+            path,
+            jsonBody,
+            headers,
+            retryConfigOverride = retryConfigOverride,
+            retryOnConnectionFailure = retryOnConnectionFailure
+        )
     }
 
     /**
@@ -96,7 +168,19 @@ class BloqueHttpClient(
      * Internal request method
      */
     @PublishedApi
-    internal inline fun <reified T> request(method: String, path: String, body: String?, headers: Map<String, String>? = null): T {
+    internal inline fun <reified T> request(
+        method: String,
+        path: String,
+        body: String?,
+        headers: Map<String, String>? = null,
+        skipExchange: Boolean = false,
+        retryConfigOverride: RetryConfig? = null,
+        retryOnConnectionFailure: Boolean = true
+    ): T {
+        if (!skipExchange && config.auth is AuthConfig.ApiKey) {
+            ensureExchanged()
+        }
+
         val url = "${baseUrl}$path"
 
         val requestBuilder = Request.Builder()
@@ -123,13 +207,19 @@ class BloqueHttpClient(
         }
 
         val request = requestBuilder.build()
+        val requestClient = if (retryOnConnectionFailure) {
+            client
+        } else {
+            client.newBuilder().retryOnConnectionFailure(false).build()
+        }
 
+        val effectiveRetryConfig = retryConfigOverride ?: retryConfig
         var lastException: Exception? = null
-        var currentDelay = retryConfig.initialDelayMs
+        var currentDelay = effectiveRetryConfig.initialDelayMs
 
-        for (attempt in 0..retryConfig.maxRetries) {
+        for (attempt in 0..effectiveRetryConfig.maxRetries) {
             try {
-                client.newCall(request).execute().use { response ->
+                requestClient.newCall(request).execute().use { response ->
                     val responseBody = response.body?.string()
 
                     if (!response.isSuccessful) {
@@ -139,15 +229,14 @@ class BloqueHttpClient(
                             defaultMessage = "API error ${response.code}: $responseBody"
                         )
 
-                        // Only retry on server errors (5xx), not client errors (4xx)
-                        if (response.code in 500..599 && attempt < retryConfig.maxRetries) {
+                        if (response.code in 500..599 && attempt < effectiveRetryConfig.maxRetries) {
                             lastException = error
                             Thread.sleep(currentDelay)
                             currentDelay = minOf(
-                                (currentDelay * retryConfig.backoffMultiplier).toLong(),
-                                retryConfig.maxDelayMs
+                                (currentDelay * effectiveRetryConfig.backoffMultiplier).toLong(),
+                                effectiveRetryConfig.maxDelayMs
                             )
-                            return@use // Continue to next attempt
+                            return@use
                         }
 
                         throw error
@@ -164,13 +253,12 @@ class BloqueHttpClient(
                     }
                 }
             } catch (e: IOException) {
-                // Retry on network errors
                 lastException = BloqueNetworkError("Network error: ${e.message}", e)
-                if (attempt < retryConfig.maxRetries) {
+                if (attempt < effectiveRetryConfig.maxRetries) {
                     Thread.sleep(currentDelay)
                     currentDelay = minOf(
-                        (currentDelay * retryConfig.backoffMultiplier).toLong(),
-                        retryConfig.maxDelayMs
+                        (currentDelay * effectiveRetryConfig.backoffMultiplier).toLong(),
+                        effectiveRetryConfig.maxDelayMs
                     )
                     continue
                 }
@@ -182,7 +270,6 @@ class BloqueHttpClient(
             }
         }
 
-        // If we get here, all retries failed
-        throw lastException ?: BloqueException("Request failed after ${retryConfig.maxRetries} retries")
+        throw lastException ?: BloqueException("Request failed after ${effectiveRetryConfig.maxRetries} retries")
     }
 }

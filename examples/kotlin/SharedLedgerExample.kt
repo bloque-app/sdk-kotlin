@@ -17,9 +17,9 @@ import app.bloque.sdk.core.Mode
  */
 fun main() {
     // Initialize SDK
-    val bloque = BloqueSDK.create(
+    val bloque = BloqueSDK.createWithOriginKey(
         origin = "my-app-origin",
-        apiKey = "sk_test_your_api_key_here",
+        originKey = "sk_test_your_origin_key_here",
         mode = Mode.PRODUCTION
     )
 

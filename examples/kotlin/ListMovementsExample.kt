@@ -8,7 +8,7 @@ import app.bloque.sdk.accounts.ListMovementsParams
 fun main() {
     val bloque = BloqueSDK.builder()
         .origin("bloque-root")
-        .apiKey("sk_test_mock_api_key")
+        .originKey("sk_test_mock_origin_key")
         .mode(Mode.SANDBOX)
         .build()
 
