@@ -5,7 +5,7 @@ import app.bloque.sdk.accounts.BrebKeyType
 import app.bloque.sdk.accounts.ResolveBrebKeyParams
 import app.bloque.sdk.core.Mode
 import app.bloque.sdk.swap.BrebDepositInformation
-import app.bloque.sdk.swap.BrebSwapArgs
+import app.bloque.sdk.swap.BrebOrderArgs
 import app.bloque.sdk.swap.CreateBrebOrderParams
 import app.bloque.sdk.swap.FindRatesParams
 
@@ -16,9 +16,9 @@ import app.bloque.sdk.swap.FindRatesParams
  * and create a BRE-B swap order.
  */
 fun main() {
-    val bloque = BloqueSDK.create(
+    val bloque = BloqueSDK.createWithOriginKey(
         origin = "my-app-origin",
-        apiKey = "sk_test_your_api_key_here",
+        originKey = "sk_test_your_origin_key_here",
         mode = Mode.SANDBOX
     )
 
@@ -35,7 +35,8 @@ fun main() {
 
     println("BREB resolve key response 3003348486: $resolution")
 
-    if (resolution.error != null || resolution.data == null) {
+    val resolvedKey = resolution.data
+    if (resolution.error != null || resolvedKey == null) {
         throw IllegalStateException(
             resolution.error?.message ?: "Failed to resolve BRE-B key"
         )
@@ -68,9 +69,9 @@ fun main() {
             rateSig = rates.rates.first().sig,
             amountSrc = "10000000",
             depositInformation = BrebDepositInformation(
-                resolutionId = resolution.data.resolutionId
+                resolutionId = resolvedKey.resolutionId
             ),
-            args = BrebSwapArgs(
+            args = BrebOrderArgs(
                 sourceAccountUrn = "did:bloque:account:breb:bdb6f52b-bb95-491e-92e0-18c3aff3ec03"
             )
         )

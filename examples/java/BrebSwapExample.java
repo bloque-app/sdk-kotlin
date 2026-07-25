@@ -8,7 +8,7 @@ import app.bloque.sdk.accounts.BrebResolvedKey;
 import app.bloque.sdk.accounts.ResolveBrebKeyParams;
 import app.bloque.sdk.core.Mode;
 import app.bloque.sdk.swap.BrebDepositInformation;
-import app.bloque.sdk.swap.BrebSwapArgs;
+import app.bloque.sdk.swap.BrebOrderArgs;
 import app.bloque.sdk.swap.CreateBrebOrderParams;
 import app.bloque.sdk.swap.CreateBrebOrderResult;
 import app.bloque.sdk.swap.FindRatesParams;
@@ -80,10 +80,11 @@ public class BrebSwapExample {
             .create(new CreateBrebOrderParams(
                 rates.getRates().get(0).getSig(),
                 new BrebDepositInformation(resolution.getData().getResolutionId()),
+                new BrebOrderArgs("did:bloque:account:breb:bdb6f52b-bb95-491e-92e0-18c3aff3ec03"),
                 "10000000",
                 null,
                 null,
-                new BrebSwapArgs("did:bloque:account:breb:bdb6f52b-bb95-491e-92e0-18c3aff3ec03"),
+                null,
                 null,
                 null,
                 null

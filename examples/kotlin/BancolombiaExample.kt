@@ -14,9 +14,9 @@ import app.bloque.sdk.identity.UserProfile
  */
 fun main() {
     // Initialize the SDK
-    val bloque = BloqueSDK.create(
+    val bloque = BloqueSDK.createWithOriginKey(
         origin = "{your-origin-here}",
-        apiKey = "{your-api-key-here}",
+        originKey = "{your-origin-key-here}",
         mode = Mode.SANDBOX
     )
 

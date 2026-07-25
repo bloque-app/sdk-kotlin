@@ -28,7 +28,7 @@ class SwapClient constructor(
     val colbank: ColBankClient = ColBankClient(httpClient)
 
     /**
-     * BRE-B withdrawal client
+     * BRE-B instant payout client.
      */
     val breb: BrebClient = BrebClient(httpClient)
 

@@ -302,3 +302,122 @@ data class AssertionResult constructor(
     val challengeType: ChallengeType,
     val value: Map<String, String>
 )
+
+// ============================================
+// API Key Types
+// ============================================
+
+@Serializable
+data class ApiKeyInfo(
+    val id: String,
+    @SerialName("key_id") val keyId: String,
+    @SerialName("publishable_key") val publishableKey: String,
+    val name: String,
+    val scopes: List<String>,
+    val domains: List<String>,
+    val status: String,
+    val expiration: String,
+    val metadata: Map<String, String> = emptyMap(),
+    @SerialName("last_used_at") val lastUsedAt: String? = null,
+    @SerialName("created_at") val createdAt: String
+)
+
+data class CreateApiKeyParams @JvmOverloads constructor(
+    val name: String,
+    val scopes: List<String>,
+    val domains: List<String>,
+    val expiration: String,
+    val metadata: Map<String, String>? = null
+)
+
+@Serializable
+data class CreateApiKeyResult(
+    @SerialName("key_id") val keyId: String,
+    @SerialName("secret_key") val secretKey: String,
+    @SerialName("publishable_key") val publishableKey: String
+)
+
+data class ExchangeApiKeyParams @JvmOverloads constructor(
+    val key: String,
+    val scopes: List<String>? = null
+)
+
+@Serializable
+data class ExchangeApiKeyResult(
+    @SerialName("access_token") val accessToken: String,
+    @SerialName("expires_in") val expiresIn: Int,
+    @SerialName("token_type") val tokenType: String
+)
+
+@Serializable
+data class RotateApiKeyResult(
+    @SerialName("key_id") val keyId: String,
+    @SerialName("secret_key") val secretKey: String,
+    @SerialName("publishable_key") val publishableKey: String
+)
+
+// ============================================
+// Identity Me Types
+// ============================================
+
+@Serializable
+data class IdentityMe(
+    val urn: String,
+    val origin: String,
+    val type: String? = null,
+    val profile: Map<String, String?> = emptyMap()
+)
+
+// ============================================
+// API Key Wire Types (Internal)
+// ============================================
+
+@Serializable
+internal data class ApiKeyListResponseWire(
+    val result: List<ApiKeyInfo>
+)
+
+@Serializable
+internal data class ApiKeyResponseWire(
+    val result: ApiKeyInfo
+)
+
+@Serializable
+internal data class CreateApiKeyRequestWire(
+    val name: String,
+    val scopes: List<String>,
+    val domains: List<String>,
+    val expiration: String,
+    val metadata: Map<String, String>? = null
+)
+
+@Serializable
+internal data class CreateApiKeyResponseWire(
+    val result: CreateApiKeyResult
+)
+
+@Serializable
+internal data class ExchangeApiKeyRequestWire(
+    val key: String,
+    val scopes: List<String>? = null
+)
+
+@Serializable
+internal data class ExchangeApiKeyResponseWire(
+    val result: ExchangeApiKeyResult
+)
+
+@Serializable
+internal data class RotateApiKeyResponseWire(
+    val result: RotateApiKeyResult
+)
+
+@Serializable
+internal data class IdentityMeResponseWire(
+    val result: IdentityMe
+)
+
+@Serializable
+internal data class MessageResponseWire(
+    val message: String
+)

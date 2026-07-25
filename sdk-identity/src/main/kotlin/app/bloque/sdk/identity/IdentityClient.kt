@@ -10,13 +10,16 @@ class IdentityClient constructor(
     httpClient: BloqueHttpClient
 ) : BaseClient(httpClient) {
 
-    /**
-     * Alias operations
-     */
     val aliases: AliasesClient = AliasesClient(httpClient)
+    val origins: OriginsClient = OriginsClient(httpClient)
+    val apiKeys: ApiKeysClient = ApiKeysClient(httpClient)
 
     /**
-     * Origin operations
+     * Retrieve the authenticated identity's own profile.
+     * Used by ApiKey auth to discover origin and urn after exchange.
      */
-    val origins: OriginsClient = OriginsClient(httpClient)
+    fun me(): IdentityMe {
+        val response = httpClient.get<IdentityMeResponseWire>(path = "/api/identities/me")
+        return response.result
+    }
 }

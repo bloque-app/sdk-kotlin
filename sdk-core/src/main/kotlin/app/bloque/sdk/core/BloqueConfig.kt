@@ -1,10 +1,15 @@
 package app.bloque.sdk.core
 
 /**
- * Authentication configuration for the SDK
+ * Authentication configuration for the SDK.
+ *
+ * - [ApiKey]: Uses sk_ secret keys that are auto-exchanged for short-lived JWTs.
+ *   Origin is resolved at runtime via /me. Recommended for new integrations.
+ * - [OriginKey]: Legacy origin-scoped keys. Requires origin + alias for connect().
  */
 sealed class AuthConfig {
-    data class ApiKey(val apiKey: String) : AuthConfig()
+    data class ApiKey(val secretKey: String, val scopes: List<String>? = null) : AuthConfig()
+    data class OriginKey(val originKey: String) : AuthConfig()
 }
 
 /**
@@ -80,14 +85,14 @@ data class RetryConfig(
 /**
  * Configuration for Bloque SDK
  *
- * @param origin The origin identifier for authentication
+ * @param origin The origin identifier. Required for OriginKey auth, resolved at runtime for ApiKey auth.
  * @param auth Authentication configuration
  * @param mode SDK environment mode (PRODUCTION or SANDBOX)
  * @param timeoutMs Request timeout in milliseconds (default: 30000)
  * @param retry Retry configuration for failed requests
  */
 data class BloqueConfig(
-    val origin: String,
+    val origin: String?,
     val auth: AuthConfig,
     val mode: Mode = Mode.PRODUCTION,
     val timeoutMs: Long = 30000,
@@ -95,9 +100,10 @@ data class BloqueConfig(
 ) {
     val baseUrl: String get() = mode.baseUrl
 
-    val apiKey: String
+    val originKey: String
         get() = when (auth) {
-            is AuthConfig.ApiKey -> auth.apiKey
+            is AuthConfig.OriginKey -> auth.originKey
+            is AuthConfig.ApiKey -> throw BloqueConfigError("originKey is not available for ApiKey auth")
         }
 
     class Builder {
@@ -108,7 +114,25 @@ data class BloqueConfig(
         private var retry: RetryConfig = RetryConfig.DEFAULT
 
         fun origin(origin: String) = apply { this.origin = origin }
+
+        /**
+         * Configure authentication with an sk_ secret key (recommended).
+         * The SDK will auto-exchange this key for short-lived JWTs.
+         * Origin is not required — it will be resolved via /me at connect time.
+         */
+        fun secretKey(secretKey: String, scopes: List<String>? = null) = apply {
+            this.auth = AuthConfig.ApiKey(secretKey, scopes)
+        }
+
+        /**
+         * Configure authentication with a legacy origin-scoped key.
+         * Requires origin to be set. Use connect(alias) to authenticate.
+         */
+        fun originKey(originKey: String) = apply { this.auth = AuthConfig.OriginKey(originKey) }
+
+        @Deprecated("Use secretKey() for sk_ keys or originKey() for legacy keys", ReplaceWith("secretKey(apiKey)"))
         fun apiKey(apiKey: String) = apply { this.auth = AuthConfig.ApiKey(apiKey) }
+
         fun mode(mode: Mode) = apply { this.mode = mode }
         fun timeout(timeoutMs: Long) = apply { this.timeoutMs = timeoutMs }
         fun timeoutMs(timeoutMs: Long) = apply { this.timeoutMs = timeoutMs }
@@ -118,9 +142,13 @@ data class BloqueConfig(
         }
 
         fun build(): BloqueConfig {
+            val resolvedAuth = requireNotNull(auth) { "auth is required — call secretKey() or originKey()" }
+            if (resolvedAuth is AuthConfig.OriginKey) {
+                requireNotNull(origin) { "origin is required for originKey auth" }
+            }
             return BloqueConfig(
-                origin = requireNotNull(origin) { "origin is required" },
-                auth = requireNotNull(auth) { "auth is required" },
+                origin = origin,
+                auth = resolvedAuth,
                 mode = mode,
                 timeoutMs = timeoutMs,
                 retry = retry

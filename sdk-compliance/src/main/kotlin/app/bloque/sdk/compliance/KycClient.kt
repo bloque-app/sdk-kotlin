@@ -19,18 +19,20 @@ class KycClient constructor(
     fun startVerification(params: KycVerificationParams): KycVerificationResponse {
         val request = KycVerificationRequestWire(
             urn = params.urn,
+            type = params.type,
+            accompliceType = params.accompliceType,
             webhookUrl = params.webhookUrl
         )
 
         val headers = params.idempotencyKey?.let { mapOf("Idempotency-Key" to it) }
 
-        val response = httpClient.post<KycVerificationResponseWire, KycVerificationRequestWire>(
-            path = "/api/compliance/kyc/start",
+        val response = httpClient.post<KycVerificationResponseDirect, KycVerificationRequestWire>(
+            path = "/api/compliance",
             body = request,
             headers = headers
         )
 
-        return mapResponse(response.result)
+        return mapStartResponse(response)
     }
 
     /**
@@ -40,14 +42,14 @@ class KycClient constructor(
      * @return KYC verification response with current status
      */
     fun getVerification(params: GetKycVerificationParams): KycVerificationResponse {
-        val response = httpClient.get<KycVerificationResponseWire>(
-            path = "/api/compliance/kyc/${params.urn}"
+        val response = httpClient.get<KycVerificationResponseDirect>(
+            path = "/api/compliance/${params.urn}"
         )
 
-        return mapResponse(response.result)
+        return mapGetResponse(response)
     }
 
-    private fun mapResponse(wire: KycVerificationResultWire): KycVerificationResponse {
+    private fun mapStartResponse(wire: KycVerificationResponseDirect): KycVerificationResponse {
         val status = when (wire.status) {
             "awaiting_compliance_verification" -> KycVerificationStatus.AWAITING_VERIFICATION
             "approved" -> KycVerificationStatus.APPROVED
@@ -57,7 +59,22 @@ class KycClient constructor(
 
         return KycVerificationResponse(
             status = status,
-            url = wire.url,
+            url = wire.url ?: "",
+            completedAt = null
+        )
+    }
+
+    private fun mapGetResponse(wire: KycVerificationResponseDirect): KycVerificationResponse {
+        val status = when (wire.status) {
+            "awaiting_compliance_verification" -> KycVerificationStatus.AWAITING_VERIFICATION
+            "approved" -> KycVerificationStatus.APPROVED
+            "rejected" -> KycVerificationStatus.REJECTED
+            else -> KycVerificationStatus.AWAITING_VERIFICATION
+        }
+
+        return KycVerificationResponse(
+            status = status,
+            url = wire.verificationUrl ?: wire.url ?: "",
             completedAt = wire.completedAt
         )
     }

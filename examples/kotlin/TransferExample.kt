@@ -12,9 +12,9 @@ import app.bloque.sdk.core.Mode
  */
 fun main() {
     // Initialize the SDK
-    val bloque = BloqueSDK.create(
+    val bloque = BloqueSDK.createWithOriginKey(
         origin = "my-app-origin",
-        apiKey = "sk_test_your_api_key_here",
+        originKey = "sk_test_your_origin_key_here",
         mode = Mode.SANDBOX
     )
 
@@ -137,8 +137,8 @@ fun main() {
         )
     )
 
-    println("Found ${movements.size} movements:")
-    movements.forEach { movement ->
+    println("Found ${movements.data.size} movements:")
+    movements.data.forEach { movement ->
         println("  - Reference: ${movement.reference}")
         println("    Amount: ${movement.amount} ${movement.asset}")
         println("    Direction: ${movement.direction}")
