@@ -116,8 +116,8 @@ class BloqueHttpClient(
     /**
      * Make a GET request
      */
-    inline fun <reified T> get(path: String): T {
-        return request("GET", path, null)
+    inline fun <reified T> get(path: String, headers: Map<String, String>? = null): T {
+        return request("GET", path, null, headers)
     }
 
     /**
@@ -226,7 +226,8 @@ class BloqueHttpClient(
                         val error = createBloqueError(
                             statusCode = response.code,
                             errorBody = responseBody,
-                            defaultMessage = "API error ${response.code}: $responseBody"
+                            defaultMessage = "API error ${response.code}: $responseBody",
+                            httpClient = this@BloqueHttpClient
                         )
 
                         if (response.code in 500..599 && attempt < effectiveRetryConfig.maxRetries) {

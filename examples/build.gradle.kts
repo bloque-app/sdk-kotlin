@@ -31,7 +31,8 @@ val kotlinExamples = listOf(
     "ColBankWithdrawal" to "app.bloque.examples.ColBankWithdrawalExampleKt",
     "Bancolombia" to "app.bloque.examples.BancolombiaExampleKt",
     "Breb" to "app.bloque.examples.BrebExampleKt",
-    "BrebSwap" to "app.bloque.examples.BrebSwapExampleKt"
+    "BrebSwap" to "app.bloque.examples.BrebSwapExampleKt",
+    "ComplianceGates" to "app.bloque.examples.ComplianceGatesExampleKt"
 )
 
 kotlinExamples.forEach { (name, className) ->
