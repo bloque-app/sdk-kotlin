@@ -5,8 +5,8 @@ import app.bloque.sdk.compliance.*
 import app.bloque.sdk.core.BloqueVerificationPendingError
 import app.bloque.sdk.core.BloqueVerificationRequiredError
 import app.bloque.sdk.core.Mode
+import app.bloque.sdk.UpdateOriginMetadataParams
 import app.bloque.sdk.identity.IndividualRegisterParams
-import app.bloque.sdk.identity.UpdateOriginMetadataParams
 import app.bloque.sdk.identity.UserProfile
 
 /**
@@ -27,8 +27,10 @@ import app.bloque.sdk.identity.UserProfile
  *   re-collect what a reviewer already has.
  * - Catching `BloqueVerificationRequiredError` / `BloqueVerificationPendingError`
  *   thrown by other SDK calls once a tier limit blocks an action.
- * - `session.identity.apiKeys.updateOriginMetadata()` — self-service
- *   `gate_accent_color` / `verification_gate_return_url_allowlist` config.
+ * - `bloque.origins.updateMetadata()` — self-service `gate_accent_color` /
+ *   `verification_gate_return_url_allowlist` config, called on the root
+ *   SDK instance (sibling to `connect()`/`register()`) since it needs no
+ *   connected session.
  */
 fun main() {
     val bloque = BloqueSDK.createWithOriginKey(
@@ -144,11 +146,12 @@ fun main() {
     println("\n=== Example 3: Self-Service Gate Personalization ===")
 
     // No session required — authenticated purely by the origin's own
-    // api_key. Typically run once from a deploy script, not per-request.
-    val metadataResult = session.identity.apiKeys.updateOriginMetadata(
+    // api_key. Called on `bloque` (the root SDK instance), not `session`.
+    // originName/apiKey default to the SDK's own config, so they can be
+    // omitted here since we built `bloque` with them above.
+    // Typically run once from a deploy script, not per-request.
+    val metadataResult = bloque.origins.updateMetadata(
         UpdateOriginMetadataParams(
-            originName = "origin",
-            apiKey = "your-origin-key",
             gateAccentColor = "#1a73e8",
             verificationGateReturnUrlAllowlist = listOf("https://myapp.example.com/verification-complete")
         )
