@@ -2,6 +2,7 @@ package app.bloque.sdk.compliance
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 // ============================================
 // KYC Verification Types
@@ -80,6 +81,27 @@ enum class RequirementFieldType {
     TEXT, NUMBER, DATE, SELECT, BOOLEAN
 }
 
+/** `{ en, es }` pair used wherever a requirement/field surfaces a
+ * display string in more than one language. */
+data class LocalizedText(
+    val en: String,
+    val es: String
+)
+
+/**
+ * A single [RequirementFieldType.SELECT] choice with a stored [value]
+ * distinct from its localized display [label].
+ *
+ * The wire form can be either a legacy plain string (rendered as-is,
+ * unlocalized — [label] comes back `null`) or the newer
+ * `{ value, label: { en, es } }` shape. Both are normalized into this one
+ * type so callers never need to branch on wire shape themselves.
+ */
+data class RequirementFieldOption @JvmOverloads constructor(
+    val value: String,
+    val label: LocalizedText? = null
+)
+
 /**
  * A single field definition for a requirement that collects form answers.
  */
@@ -88,8 +110,17 @@ data class RequirementField @JvmOverloads constructor(
     val label: String,
     val type: RequirementFieldType,
     val required: Boolean? = null,
+    /** Short help text rendered under the label, clarifying what's being asked. */
+    val description: String? = null,
     /** Only meaningful for [RequirementFieldType.SELECT]. */
-    val options: List<String>? = null
+    val options: List<RequirementFieldOption>? = null,
+    /**
+     * Pins which side of a localized [RequirementFieldOption.label] to
+     * display for this field, overriding whatever locale detection the
+     * caller would otherwise apply. `null` means "use the caller's own
+     * locale detection" (e.g. `Accept-Language` on a hosted page).
+     */
+    val locale: String? = null
 )
 
 /** Status of a single requirement within a tier level. */
@@ -100,10 +131,20 @@ data class TierRequirementStatus @JvmOverloads constructor(
     val status: RequirementEvidenceStatus,
     /** What this requirement means, for display without hardcoding key strings. */
     val description: String? = null,
+    /** Human-readable title for the requirement's card. Falls back to a
+     * humanized [key] client-side when absent (older policies). */
+    val title: String? = null,
     /** Only present for requirements that collect form answers. */
     val fields: List<RequirementField>? = null,
     /** ISO-8601 timestamp of the submission behind a `PENDING_REVIEW` status. */
-    val submittedAt: String? = null
+    val submittedAt: String? = null,
+    /**
+     * When explicitly `false`, this requirement is form-only and must
+     * never be treated as uploadable regardless of [kind] (e.g. a
+     * `manual_review` declaration with no accompanying document).
+     * `null`/`true` preserves the usual kind-based uploadable default.
+     */
+    val requiresUpload: Boolean? = null
 )
 
 /** Status of a single tier level, including all of its requirements. */
@@ -156,7 +197,16 @@ data class TierStatus @JvmOverloads constructor(
      * there is nothing left for the customer to do.
      */
     val pendingRequirements: List<String> = emptyList(),
-    val verificationFlow: VerificationFlowHandoff? = null
+    val verificationFlow: VerificationFlowHandoff? = null,
+    /**
+     * Earliest instant this status could change with no further input from
+     * the customer — a TOS grace-period deadline or an evidence expiry.
+     * `null` when nothing time-driven is pending, i.e. the next change (if
+     * any) requires new evidence rather than the mere passage of time.
+     * Useful as a polling hint: there is no need to re-poll before this
+     * timestamp.
+     */
+    val nextRecomputeAt: String? = null
 )
 
 // ============================================
@@ -206,7 +256,15 @@ data class TosGateInitResult(
     val csrfToken: String,
     val returnUrl: String,
     /** Whether the hosted page's intro screens should play before the document. */
-    val showHome: Boolean
+    val showHome: Boolean,
+    /**
+     * The calling origin's `gate_accent_color` (strict 3-/6-digit CSS hex),
+     * if it configured one. `null` uses the hosted page's default brand
+     * color. Only meaningful if you're rendering your own UI around the
+     * hosted page (e.g. a WebView chrome) — the hosted page itself already
+     * applies this automatically.
+     */
+    val accentColor: String? = null
 )
 
 data class TosGateAcceptParams @JvmOverloads constructor(
@@ -273,6 +331,9 @@ data class VerificationRequirement @JvmOverloads constructor(
     /** e.g. `"document"` or `"manual_review"` — TOS/KYC never appear here. */
     val kind: String,
     val description: String? = null,
+    /** Human-readable title for the requirement's card. Falls back to a
+     * humanized [key] client-side when absent (older policies). */
+    val title: String? = null,
     /** Only present for requirements that collect form answers. */
     val fields: List<RequirementField>? = null,
     val uploadable: Boolean,
@@ -287,6 +348,9 @@ data class VerificationRequirement @JvmOverloads constructor(
 data class PendingVerificationRequirement @JvmOverloads constructor(
     val key: String,
     val description: String? = null,
+    /** Human-readable title for the requirement's card. Falls back to a
+     * humanized [key] client-side when absent (older policies). */
+    val title: String? = null,
     /** ISO-8601 timestamp of the submission. */
     val submittedAt: String? = null
 )
@@ -298,7 +362,15 @@ data class VerificationGateInitResult(
     val pendingRequirements: List<PendingVerificationRequirement>,
     /** Single-use submit nonce — pass to `submit()`. */
     val csrfToken: String,
-    val returnUrl: String
+    val returnUrl: String,
+    /**
+     * The calling origin's `gate_accent_color` (strict 3-/6-digit CSS hex),
+     * if it configured one. `null` uses the hosted page's default brand
+     * color. Only meaningful if you're rendering your own UI around the
+     * hosted page — the hosted page itself already applies this
+     * automatically.
+     */
+    val accentColor: String? = null
 )
 
 data class SubmitDocumentConfirmation @JvmOverloads constructor(
@@ -362,12 +434,28 @@ internal data class KycVerificationResponseDirect(
 )
 
 @Serializable
+internal data class LocalizedTextWire(
+    val en: String = "",
+    val es: String = ""
+)
+
+/**
+ * Wire shape of a single `select` option: either a bare JSON string
+ * (legacy, unlocalized) or `{ value, label: { en, es } }`. Decoded as raw
+ * [JsonElement]s and normalized by [mapRequirementFieldOption] rather than
+ * a polymorphic `@Serializable` union, matching this file's existing
+ * convention for wire fields that mix shapes (see
+ * `VerificationGateSubmitResponseWire`'s `documents`/`answers`).
+ */
+@Serializable
 internal data class RequirementFieldWire(
     val key: String,
     val label: String,
     val type: String,
     val required: Boolean? = null,
-    val options: List<String>? = null
+    val description: String? = null,
+    val options: List<JsonElement>? = null,
+    val locale: String? = null
 )
 
 @Serializable
@@ -376,8 +464,10 @@ internal data class TierRequirementStatusWire(
     val kind: String,
     val status: String,
     val description: String? = null,
+    val title: String? = null,
     val fields: List<RequirementFieldWire>? = null,
-    @SerialName("submitted_at") val submittedAt: String? = null
+    @SerialName("submitted_at") val submittedAt: String? = null,
+    @SerialName("requires_upload") val requiresUpload: Boolean? = null
 )
 
 @Serializable
@@ -405,7 +495,8 @@ internal data class GetTierStatusResponseWire(
     @SerialName("next_level") val nextLevel: Int? = null,
     @SerialName("missing_requirements") val missingRequirements: List<String>? = null,
     @SerialName("pending_requirements") val pendingRequirements: List<String>? = null,
-    @SerialName("verification_flow") val verificationFlow: VerificationFlowHandoffWire? = null
+    @SerialName("verification_flow") val verificationFlow: VerificationFlowHandoffWire? = null,
+    @SerialName("next_recompute_at") val nextRecomputeAt: String? = null
 )
 
 @Serializable
@@ -431,7 +522,8 @@ internal data class TosGateInitResponseWire(
     val document: TosGateDocumentWire,
     @SerialName("csrf_token") val csrfToken: String,
     @SerialName("return_url") val returnUrl: String,
-    @SerialName("show_home") val showHome: Boolean = true
+    @SerialName("show_home") val showHome: Boolean = true,
+    @SerialName("accent_color") val accentColor: String? = null
 )
 
 @Serializable
@@ -470,6 +562,7 @@ internal data class VerificationRequirementWire(
     val key: String,
     val kind: String,
     val description: String? = null,
+    val title: String? = null,
     val fields: List<RequirementFieldWire>? = null,
     val uploadable: Boolean,
     @SerialName("upload_intents") val uploadIntents: List<VerificationUploadIntentWire>? = null
@@ -479,6 +572,7 @@ internal data class VerificationRequirementWire(
 internal data class PendingVerificationRequirementWire(
     val key: String,
     val description: String? = null,
+    val title: String? = null,
     @SerialName("submitted_at") val submittedAt: String? = null
 )
 
@@ -487,7 +581,8 @@ internal data class VerificationGateInitResponseWire(
     val requirements: List<VerificationRequirementWire>,
     @SerialName("pending_requirements") val pendingRequirements: List<PendingVerificationRequirementWire>? = null,
     @SerialName("csrf_token") val csrfToken: String,
-    @SerialName("return_url") val returnUrl: String? = null
+    @SerialName("return_url") val returnUrl: String? = null,
+    @SerialName("accent_color") val accentColor: String? = null
 )
 
 @Serializable

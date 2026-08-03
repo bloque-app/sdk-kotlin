@@ -17,6 +17,7 @@ private fun mapRequirement(wire: VerificationRequirementWire): VerificationRequi
         key = wire.key,
         kind = wire.kind,
         description = wire.description,
+        title = wire.title,
         fields = wire.fields?.map(::mapRequirementField),
         uploadable = wire.uploadable,
         uploadIntents = wire.uploadIntents?.map(::mapUploadIntent)
@@ -27,6 +28,7 @@ private fun mapPendingRequirement(wire: PendingVerificationRequirementWire): Pen
     return PendingVerificationRequirement(
         key = wire.key,
         description = wire.description,
+        title = wire.title,
         submittedAt = wire.submittedAt
     )
 }
@@ -96,7 +98,8 @@ class VerificationGateClient constructor(
             requirements = response.requirements.map(::mapRequirement),
             pendingRequirements = (response.pendingRequirements ?: emptyList()).map(::mapPendingRequirement),
             csrfToken = response.csrfToken,
-            returnUrl = response.returnUrl ?: ""
+            returnUrl = response.returnUrl ?: "",
+            accentColor = response.accentColor
         )
     }
 

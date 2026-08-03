@@ -2,6 +2,9 @@ package app.bloque.sdk.compliance
 
 import app.bloque.sdk.core.BaseClient
 import app.bloque.sdk.core.BloqueHttpClient
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 private fun mapRequirementFieldType(type: String): RequirementFieldType = when (type) {
     "text" -> RequirementFieldType.TEXT
@@ -12,13 +15,39 @@ private fun mapRequirementFieldType(type: String): RequirementFieldType = when (
     else -> RequirementFieldType.TEXT
 }
 
+/**
+ * Normalizes a single wire `select` option — a bare JSON string (legacy,
+ * unlocalized) or `{ value, label: { en, es } }` — into [RequirementFieldOption].
+ * Anything unparseable degrades to a plain, unlocalized option using the
+ * element's own string form, rather than dropping the option entirely.
+ */
+private fun mapRequirementFieldOption(element: JsonElement): RequirementFieldOption {
+    return when {
+        element is JsonPrimitive && element.isString -> RequirementFieldOption(value = element.content)
+        element is JsonObject -> {
+            val value = (element["value"] as? JsonPrimitive)?.content ?: ""
+            val labelObj = element["label"] as? JsonObject
+            val label = labelObj?.let {
+                LocalizedText(
+                    en = (it["en"] as? JsonPrimitive)?.content ?: "",
+                    es = (it["es"] as? JsonPrimitive)?.content ?: ""
+                )
+            }
+            RequirementFieldOption(value = value, label = label)
+        }
+        else -> RequirementFieldOption(value = element.toString())
+    }
+}
+
 internal fun mapRequirementField(wire: RequirementFieldWire): RequirementField {
     return RequirementField(
         key = wire.key,
         label = wire.label,
         type = mapRequirementFieldType(wire.type),
         required = wire.required,
-        options = wire.options
+        description = wire.description,
+        options = wire.options?.map(::mapRequirementFieldOption),
+        locale = wire.locale
     )
 }
 
@@ -37,8 +66,10 @@ private fun mapRequirementStatus(wire: TierRequirementStatusWire): TierRequireme
         kind = wire.kind,
         status = mapRequirementEvidenceStatus(wire.status),
         description = wire.description,
+        title = wire.title,
         fields = wire.fields?.map(::mapRequirementField),
-        submittedAt = wire.submittedAt
+        submittedAt = wire.submittedAt,
+        requiresUpload = wire.requiresUpload
     )
 }
 
@@ -94,7 +125,8 @@ class TiersClient constructor(
             nextLevel = response.nextLevel,
             missingRequirements = response.missingRequirements ?: emptyList(),
             pendingRequirements = response.pendingRequirements ?: emptyList(),
-            verificationFlow = mapVerificationFlow(response.verificationFlow)
+            verificationFlow = mapVerificationFlow(response.verificationFlow),
+            nextRecomputeAt = response.nextRecomputeAt
         )
     }
 }

@@ -62,7 +62,8 @@ class TosGateClient constructor(
             ),
             csrfToken = response.csrfToken,
             returnUrl = response.returnUrl,
-            showHome = response.showHome
+            showHome = response.showHome,
+            accentColor = response.accentColor
         )
     }
 

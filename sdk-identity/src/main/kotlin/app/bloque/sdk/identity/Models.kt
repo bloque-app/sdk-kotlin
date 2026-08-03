@@ -421,3 +421,53 @@ internal data class IdentityMeResponseWire(
 internal data class MessageResponseWire(
     val message: String
 )
+
+// ============================================
+// Self-Service Origin Metadata Types
+// ============================================
+
+/**
+ * Parameters for [ApiKeysClient.updateOriginMetadata] — a shallow-merge
+ * PATCH into an origin's `metadata`, authenticated purely by the origin's
+ * own [apiKey] (no session/JWT required, matching how the hosted TOS/
+ * verification gates are configured). Only an explicit, extensible
+ * allowlist of keys can be set this way; unset fields here are left
+ * untouched on the origin (they are not cleared).
+ *
+ * These four keys are exactly the ones the hosted gates read at
+ * `/tos-gate/start` and `/verification-gate/start` time:
+ * - [company] — display name substituted for `{{developer_name}}` in the
+ *   TOS document template.
+ * - [tosGateShowHome] — whether the TOS gate's intro screens play before
+ *   the document (default `true`).
+ * - [gateAccentColor] — brand accent color (strict 3-/6-digit CSS hex,
+ *   e.g. `"#1a73e8"`) applied to both hosted gates.
+ * - [verificationGateReturnUrlAllowlist] — additional `return_url` values
+ *   the verification gate will accept for this origin, unioned with the
+ *   deployment-wide allowlist.
+ */
+data class UpdateOriginMetadataParams @JvmOverloads constructor(
+    val originName: String,
+    val apiKey: String,
+    val company: String? = null,
+    val tosGateShowHome: Boolean? = null,
+    val gateAccentColor: String? = null,
+    val verificationGateReturnUrlAllowlist: List<String>? = null
+)
+
+data class UpdateOriginMetadataResult(
+    val originName: String,
+    val updated: Boolean
+)
+
+@Serializable
+internal data class UpdateOriginMetadataRequestWire(
+    @SerialName("api_key") val apiKey: String,
+    val metadata: kotlinx.serialization.json.JsonObject
+)
+
+@Serializable
+internal data class UpdateOriginMetadataResponseWire(
+    @SerialName("origin_name") val originName: String,
+    val updated: Boolean
+)

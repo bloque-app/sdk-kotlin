@@ -6,6 +6,7 @@ import app.bloque.sdk.core.BloqueVerificationPendingError
 import app.bloque.sdk.core.BloqueVerificationRequiredError
 import app.bloque.sdk.core.Mode
 import app.bloque.sdk.identity.IndividualRegisterParams
+import app.bloque.sdk.identity.UpdateOriginMetadataParams
 import app.bloque.sdk.identity.UserProfile
 
 /**
@@ -14,12 +15,20 @@ import app.bloque.sdk.identity.UserProfile
  *
  * This demonstrates:
  * - `session.compliance.tiers.getStatus()` — what's missing, what's already
- *   under review, and which hosted gate resolves the gap.
+ *   under review, and which hosted gate resolves the gap. Includes
+ *   `nextRecomputeAt`, a polling-backoff hint.
  * - `session.compliance.tosGate.start()` — mint a Level 0 TOS acceptance link.
  * - `session.compliance.verificationGate.start()` — mint a hosted
- *   document/form submission link (return_url is optional here).
+ *   document/form submission link (return_url is optional here), then
+ *   `init()` to render its requirement cards: per-field help text
+ *   (`description`), localized `select` options, and `requiresUpload`
+ *   branching (a form-only requirement never shows a file picker).
+ * - Handling `pendingRequirements` distinctly from actionable ones — never
+ *   re-collect what a reviewer already has.
  * - Catching `BloqueVerificationRequiredError` / `BloqueVerificationPendingError`
  *   thrown by other SDK calls once a tier limit blocks an action.
+ * - `session.identity.apiKeys.updateOriginMetadata()` — self-service
+ *   `gate_accent_color` / `verification_gate_return_url_allowlist` config.
  */
 fun main() {
     val bloque = BloqueSDK.createWithOriginKey(
@@ -55,6 +64,11 @@ fun main() {
     println("Next level: ${status.nextLevel}")
     println("Missing requirements: ${status.missingRequirements}")
     println("Pending (already submitted, under review): ${status.pendingRequirements}")
+    // Nothing time-driven changes this status before nextRecomputeAt (a TOS
+    // grace deadline or an evidence expiry) — a cheap hint for how long a
+    // polling loop can safely back off, distinct from "poll again once the
+    // user tells you they finished the hosted gate".
+    status.nextRecomputeAt?.let { println("Next automatic recompute at: $it") }
 
     // ============================================
     // Example 2: Follow the hosted-gate handoff
@@ -73,14 +87,78 @@ fun main() {
             // when there's nowhere meaningful to redirect back to.
             val gate = session.compliance.verificationGate.start(StartVerificationGateParams())
             println("Open this URL to submit documents: ${gate.url}")
+
+            // init() renders the actual requirement cards. Demonstrates
+            // per-field help text, localized select options, and the
+            // requires_upload opt-out (a form-only manual_review must never
+            // show a file picker even though its `kind` is normally
+            // uploadable).
+            val initResult = session.compliance.verificationGate.init(
+                VerificationGateInitParams(token = gate.token)
+            )
+            initResult.accentColor?.let { println("Brand accent color: $it") }
+
+            for (requirement in initResult.requirements) {
+                println("- ${requirement.title ?: requirement.key} (${requirement.key})")
+                requirement.description?.let { println("  ${it}") }
+                if (requirement.uploadable) {
+                    println("  Accepts a document upload (${requirement.uploadIntents?.size ?: 0} content types).")
+                }
+                for (field in requirement.fields.orEmpty()) {
+                    println("  Field '${field.label}'${if (field.required == true) " (required)" else ""}")
+                    field.description?.let { println("    ${it}") }
+                    when (field.type) {
+                        RequirementFieldType.SELECT -> {
+                            // Options can be legacy plain strings (label ==
+                            // null, render `value` as-is) or localized —
+                            // pick the field's pinned `locale`, falling back
+                            // to the user's own language preference.
+                            val lang = field.locale ?: "en"
+                            for (option in field.options.orEmpty()) {
+                                val label = option.label
+                                val displayLabel = when {
+                                    label == null -> option.value
+                                    lang == "es" -> label.es
+                                    else -> label.en
+                                }
+                                println("    option: ${option.value} -> $displayLabel")
+                            }
+                        }
+                        else -> {}
+                    }
+                }
+            }
+
+            // Requirements already submitted and awaiting a reviewer are
+            // reported separately — show them read-only, never re-collect.
+            for (pending in initResult.pendingRequirements) {
+                println("- (under review) ${pending.title ?: pending.key}, submitted ${pending.submittedAt}")
+            }
         }
         null -> println("Nothing actionable — either fully verified or waiting on a reviewer.")
     }
 
     // ============================================
-    // Example 3: Handle verification errors from other calls
+    // Example 3: Self-service origin configuration
     // ============================================
-    println("\n=== Example 3: Handling Verification Errors ===")
+    println("\n=== Example 3: Self-Service Gate Personalization ===")
+
+    // No session required — authenticated purely by the origin's own
+    // api_key. Typically run once from a deploy script, not per-request.
+    val metadataResult = session.identity.apiKeys.updateOriginMetadata(
+        UpdateOriginMetadataParams(
+            originName = "origin",
+            apiKey = "your-origin-key",
+            gateAccentColor = "#1a73e8",
+            verificationGateReturnUrlAllowlist = listOf("https://myapp.example.com/verification-complete")
+        )
+    )
+    println("Origin metadata updated: ${metadataResult.updated}")
+
+    // ============================================
+    // Example 4: Handle verification errors from other calls
+    // ============================================
+    println("\n=== Example 4: Handling Verification Errors ===")
 
     try {
         // Any gated SDK call (transfers, swaps, card authorizations, ...)
@@ -96,6 +174,10 @@ fun main() {
             println("No hosted-page handoff for this gap (likely KYC).")
         }
     } catch (e: BloqueVerificationPendingError) {
+        // Deliberately no getVerificationLink() here — opening a gate would
+        // ask the user to resubmit what a reviewer already has. Show an
+        // "under review" state and retry the original action later; it
+        // succeeds once the review lands.
         println("Already submitted — nothing to do but retry later.")
         println("Pending: ${e.pendingRequirements}")
     }
