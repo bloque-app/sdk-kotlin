@@ -24,7 +24,7 @@ repositories {
 
 dependencies {
     // You only need the main module
-    implementation("app.bloque.sdk:sdk:0.0.26")
+    implementation("app.bloque.sdk:sdk:0.0.29")
 }
 ```
 
@@ -37,7 +37,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'app.bloque.sdk:sdk:0.0.26'
+    implementation 'app.bloque.sdk:sdk:0.0.29'
 }
 ```
 
@@ -49,7 +49,7 @@ dependencies {
     <dependency>
         <groupId>app.bloque.sdk</groupId>
         <artifactId>sdk</artifactId>
-        <version>0.0.26</version>
+        <version>0.0.29</version>
     </dependency>
 </dependencies>
 ```
@@ -251,6 +251,22 @@ val kycResponse = session.compliance.kyc.startVerification(
 )
 
 println("Complete KYC at: ${kycResponse.url}")
+
+// Read effective tier + what's still outstanding
+val status = session.compliance.tiers.getStatus(GetTierStatusParams(urn = session.getUrn()!!))
+when (status.verificationFlow?.type) {
+    VerificationFlowType.TOS_HOSTED_ACCEPTANCE -> {
+        val gate = session.compliance.tosGate.start(
+            StartTosGateParams(returnUrl = "https://myapp.com/verification-complete")
+        )
+        println("Accept TOS at: ${gate.url}")
+    }
+    VerificationFlowType.DOCUMENT_SUBMISSION -> {
+        val gate = session.compliance.verificationGate.start(StartVerificationGateParams())
+        println("Submit documents at: ${gate.url}")
+    }
+    null -> println("Nothing actionable right now.")
+}
 ```
 
 ### Organizations
@@ -290,6 +306,24 @@ try {
     // Handle network failures
 } catch (e: BloqueException) {
     // Handle all other SDK errors
+}
+```
+
+Compliance-gated calls (transfers, swaps, card authorizations, ...) can also throw a few more specific errors — catch these **before** the generic ones above, since they extend `BloqueAuthenticationError`/`BloqueRateLimitError`:
+
+```kotlin
+try {
+    session.accounts.transfer(TransferParams(...))
+} catch (e: BloqueVerificationRequiredError) {
+    // 403 E_VERIFICATION_REQUIRED — e.reason is "tos" | "documents" | "kyc" | "unknown"
+    val link = e.getVerificationLink(returnUrl = "https://myapp.com/verification-complete")
+    link?.let { println("Send the user to: ${it.url}") }
+} catch (e: BloqueVerificationPendingError) {
+    // 403 E_VERIFICATION_PENDING — already submitted, no getVerificationLink()
+    println("Under review: ${e.pendingRequirements}")
+} catch (e: BloqueTierLimitExceededError) {
+    // 429 E_TIER_LIMIT_EXCEEDED — e.window, e.resetAt, e.limitUsdMinorUnits
+    println("Limit hit for ${e.window}, resets at ${e.resetAt}")
 }
 ```
 

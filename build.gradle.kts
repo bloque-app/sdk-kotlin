@@ -6,7 +6,7 @@ plugins {
 
 allprojects {
     group = "app.bloque.sdk"
-    version = "0.0.27"
+    version = "0.0.29"
 
     repositories {
         mavenCentral()
