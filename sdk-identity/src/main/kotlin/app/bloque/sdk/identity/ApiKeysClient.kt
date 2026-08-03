@@ -2,19 +2,11 @@ package app.bloque.sdk.identity
 
 import app.bloque.sdk.core.BaseClient
 import app.bloque.sdk.core.BloqueHttpClient
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 
 /**
- * Client for API key management operations.
- *
- * Most of these endpoints require an authenticated user session —
- * they cannot be called with only an sk_ key. [updateOriginMetadata] is
- * the one exception: it authenticates purely via the origin's own
- * `api_key` in the request body, so it works standalone (e.g. from a
- * backend deploy script) with no session at all.
+ * Client for API key management operations. All of these endpoints
+ * require an authenticated user session — they cannot be called with
+ * only an sk_ key.
  */
 class ApiKeysClient constructor(
     httpClient: BloqueHttpClient
@@ -65,31 +57,5 @@ class ApiKeysClient constructor(
             body = emptyMap()
         )
         return response.result
-    }
-
-    /**
-     * Self-service update of an origin's hosted-gate presentation/config
-     * metadata (`company`, `tosGateShowHome`, `gateAccentColor`,
-     * `verificationGateReturnUrlAllowlist`) — shallow-merged into the
-     * origin's stored metadata. Authenticated purely by
-     * [UpdateOriginMetadataParams.apiKey]; no session required.
-     *
-     * Only the fields you set are patched — omitted fields are left
-     * untouched on the origin, they are not cleared.
-     */
-    fun updateOriginMetadata(params: UpdateOriginMetadataParams): UpdateOriginMetadataResult {
-        val metadata = buildJsonObject {
-            params.company?.let { put("company", it) }
-            params.tosGateShowHome?.let { put("tos_gate_show_home", it) }
-            params.gateAccentColor?.let { put("gate_accent_color", it) }
-            params.verificationGateReturnUrlAllowlist?.let { list ->
-                put("verification_gate_return_url_allowlist", JsonArray(list.map { JsonPrimitive(it) }))
-            }
-        }
-        val response = httpClient.patch<UpdateOriginMetadataResponseWire, UpdateOriginMetadataRequestWire>(
-            path = "/api/api-keys/origins/${params.originName}/metadata",
-            body = UpdateOriginMetadataRequestWire(apiKey = params.apiKey, metadata = metadata)
-        )
-        return UpdateOriginMetadataResult(originName = response.originName, updated = response.updated)
     }
 }

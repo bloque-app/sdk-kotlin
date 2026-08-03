@@ -42,6 +42,14 @@ class BloqueSDK private constructor(
     private val httpClient = BloqueHttpClient(config)
 
     /**
+     * Self-service origin configuration, authenticated purely by the
+     * origin's own key — no connected session required. Sibling to
+     * [connect]/[register], but for configuring the origin itself rather
+     * than one of its identities.
+     */
+    val origins: OriginsConfigClient = OriginsConfigClient(httpClient, config)
+
+    /**
      * Register a new identity and get an authenticated session.
      * Only available for OriginKey auth.
      *
