@@ -85,9 +85,12 @@ class ColBankClient internal constructor(
             webhookUrl = params.webhookUrl
         )
 
+        val headers = params.idempotencyKey?.let { mapOf("Idempotency-Key" to it) }
+
         val response = httpClient.put<CreateOrderResponseWire, CreateColBankOrderInputWire>(
             path = "/api/order",
-            body = input
+            body = input,
+            headers = headers
         )
 
         return CreateColBankOrderResult(
