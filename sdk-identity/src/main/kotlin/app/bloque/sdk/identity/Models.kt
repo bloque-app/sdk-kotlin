@@ -1,5 +1,7 @@
 package app.bloque.sdk.identity
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -339,7 +341,15 @@ data class CreateApiKeyResult(
 
 data class ExchangeApiKeyParams @JvmOverloads constructor(
     val key: String,
-    val scopes: List<String>? = null
+    val scopes: List<String>? = null,
+    /**
+     * Origin-bound keys only. Issues an owner-read impersonation JWT
+     * (`kind: api-key`, `sub` = that identity). Requires the session to
+     * already hold a `kind: origin-operator` Bearer (call
+     * `orgs.assumeOrigin` first). Cross-origin URNs return 404; unbound
+     * keys return 400 `E_AS_IDENTITY_NOT_ALLOWED`.
+     */
+    val asIdentity: String? = null
 )
 
 @Serializable
@@ -391,20 +401,14 @@ internal data class CreateApiKeyRequestWire(
     val metadata: Map<String, String>? = null
 )
 
-@Serializable
-internal data class CreateApiKeyResponseWire(
-    val result: CreateApiKeyResult
-)
-
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 internal data class ExchangeApiKeyRequestWire(
     val key: String,
-    val scopes: List<String>? = null
-)
-
-@Serializable
-internal data class ExchangeApiKeyResponseWire(
-    val result: ExchangeApiKeyResult
+    val scopes: List<String>? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    @SerialName("as_identity")
+    val asIdentity: String? = null
 )
 
 @Serializable

@@ -24,7 +24,7 @@ repositories {
 
 dependencies {
     // You only need the main module
-    implementation("app.bloque.sdk:sdk:0.0.30")
+    implementation("app.bloque.sdk:sdk:0.0.31")
 }
 ```
 
@@ -37,7 +37,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'app.bloque.sdk:sdk:0.0.30'
+    implementation 'app.bloque.sdk:sdk:0.0.31'
 }
 ```
 
@@ -49,7 +49,7 @@ dependencies {
     <dependency>
         <groupId>app.bloque.sdk</groupId>
         <artifactId>sdk</artifactId>
-        <version>0.0.30</version>
+        <version>0.0.31</version>
     </dependency>
 </dependencies>
 ```
@@ -169,6 +169,7 @@ Check out the comprehensive examples:
 - [Shared Ledger Example (Kotlin)](examples/kotlin/SharedLedgerExample.kt) - Linking multiple accounts to the same ledger
 - [Shared Ledger Example (Java)](examples/java/SharedLedgerExample.java) - Linking multiple accounts to the same ledger
 - [Ledger Explanation](examples/LEDGER_EXPLANATION.md) - Understanding ledgers, accounts, and use cases
+- [Origin-operator Example (Kotlin)](examples/kotlin/OriginOperatorExample.kt) - Assume origin, mint bound keys, `asIdentity`
 
 ### Account Management
 
@@ -280,6 +281,39 @@ val org = session.orgs.create(
             taxId = "123456789",
             // ... more fields
         )
+    )
+)
+```
+
+### Origin-operator credentials (tenant CS)
+
+Human operators `connect` as themselves, assume an origin, mint **org-owned
+bound** read-only keys, and optionally impersonate a user of that origin.
+The grant is `OriginOperatorRoleContext` — no `*.any`, pay/create, or
+passkey-as-user. Cross-origin `asIdentity` is 404; unbound keys plus
+`asIdentity` is 400 `E_AS_IDENTITY_NOT_ALLOWED`.
+
+```kotlin
+val session = bloque.connect() // human user JWT — no tenant powers yet
+
+val assumed = session.orgs.assumeOrigin("colocapay")
+// session now sends the 15-minute kind: origin-operator JWT
+
+val bound = session.identity.apiKeys.create(
+    CreateApiKeyParams(
+        name = "cs-readonly",
+        scopes = listOf("identity.read.origin", "alias.find.origin"),
+        domains = emptyList(),
+        expiration = "never"
+    )
+)
+
+session.identity.apiKeys.exchange(ExchangeApiKeyParams(key = bound.secretKey))
+
+session.identity.apiKeys.exchange(
+    ExchangeApiKeyParams(
+        key = bound.secretKey,
+        asIdentity = "did:bloque:colocapay:customer"
     )
 )
 ```

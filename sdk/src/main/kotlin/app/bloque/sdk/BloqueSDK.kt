@@ -218,6 +218,8 @@ class BloqueSDK private constructor(
 
         fun retry(block: RetryConfig.Builder.() -> Unit) = apply { configBuilder.retry(block) }
 
+        fun baseUrl(baseUrl: String) = apply { configBuilder.baseUrl(baseUrl) }
+
         fun build(): BloqueSDK {
             return BloqueSDK(configBuilder.build())
         }

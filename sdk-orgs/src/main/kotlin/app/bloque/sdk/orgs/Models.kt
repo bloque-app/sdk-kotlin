@@ -76,6 +76,16 @@ data class CreateOrgParams @JvmOverloads constructor(
     val idempotencyKey: String? = null
 )
 
+/**
+ * Result of [OrgsClient.assumeOrigin] — a 15-minute `kind: origin-operator`
+ * JWT. `sub` is the controller org; `act.sub` is the human who assumed.
+ */
+data class AssumeOriginResult(
+    val accessToken: String,
+    val expiresIn: Int,
+    val tokenType: String
+)
+
 // ============================================
 // Wire Types (Internal)
 // ============================================
@@ -123,4 +133,11 @@ internal data class CreateOrgResponseWire(
 @Serializable
 internal data class CreateOrgResultWire(
     val organization: OrganizationWire
+)
+
+@Serializable
+internal data class AssumeOriginResponseWire(
+    @SerialName("access_token") val accessToken: String,
+    @SerialName("expires_in") val expiresIn: Int,
+    @SerialName("token_type") val tokenType: String
 )
