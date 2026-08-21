@@ -158,6 +158,19 @@ sealed class RegisterParams {
     abstract val profile: Any
     abstract val metadata: Map<String, String?>?
     abstract val idempotencyKey: String?
+
+    /**
+     * The end user's real IP — not this backend's own egress IP. Only
+     * meaningful for OriginKey auth (your backend registering identities
+     * on behalf of many end users); sent as `x-original-client-ip` and
+     * used by the API to resolve `usage_country_code` (which TOS
+     * document applies) and to record the customer's IP on
+     * compliance-decision audit rows. Optional today; a future API
+     * release will reject OriginKey `register()`/`connect(alias)` calls
+     * that omit it, so start passing it now. See the TypeScript SDK
+     * guide §2.9 for the equivalent contract this mirrors.
+     */
+    abstract val clientIp: String?
     var alias: String = ""
     var origin: String = ""
 
@@ -171,25 +184,29 @@ sealed class RegisterParams {
 data class IndividualRegisterParams @JvmOverloads constructor(
     override val profile: UserProfile,
     override val metadata: Map<String, String?>? = null,
-    override val idempotencyKey: String? = null
+    override val idempotencyKey: String? = null,
+    override val clientIp: String? = null
 ) : RegisterParams()
 
 data class BasicIndividualRegisterParams @JvmOverloads constructor(
     override val profile: BasicUserProfile,
     override val metadata: Map<String, String?>? = null,
-    override val idempotencyKey: String? = null
+    override val idempotencyKey: String? = null,
+    override val clientIp: String? = null
 ) : RegisterParams()
 
 data class BusinessRegisterParams @JvmOverloads constructor(
     override val profile: BusinessProfile,
     override val metadata: Map<String, String?>? = null,
-    override val idempotencyKey: String? = null
+    override val idempotencyKey: String? = null,
+    override val clientIp: String? = null
 ) : RegisterParams()
 
 data class BasicBusinessRegisterParams @JvmOverloads constructor(
     override val profile: BasicBusinessProfile,
     override val metadata: Map<String, String?>? = null,
-    override val idempotencyKey: String? = null
+    override val idempotencyKey: String? = null,
+    override val clientIp: String? = null
 ) : RegisterParams()
 
 // ============================================

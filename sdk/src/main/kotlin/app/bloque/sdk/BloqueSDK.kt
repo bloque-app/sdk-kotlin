@@ -104,10 +104,18 @@ class BloqueSDK private constructor(
      * Connect with an alias using OriginKey auth (legacy flow).
      *
      * @param alias The user alias (e.g., "@alice", "user@email.com", "+1234567890")
+     * @param clientIp The end user's real IP — not this backend's own egress
+     *   IP. Sent as `x-original-client-ip` and used by the API to resolve
+     *   `usage_country_code` (which TOS document applies) and to record the
+     *   customer's IP on compliance-decision audit rows; resolved per-call,
+     *   not cached from a prior `register()`/`connect()`. Optional today; a
+     *   future API release will reject OriginKey `connect(alias)` calls that
+     *   omit it, so start passing it now.
      * @return UserSession with access to all SDK modules
      * @throws BloqueConfigError if auth is not OriginKey
      */
-    fun connect(alias: String): UserSession {
+    @JvmOverloads
+    fun connect(alias: String, clientIp: String? = null): UserSession {
         val auth = config.auth
         if (auth !is AuthConfig.OriginKey) {
             throw BloqueConfigError("connect(alias) requires OriginKey auth — use originKey() in the builder")
@@ -127,9 +135,12 @@ class BloqueSDK private constructor(
             extraContext = emptyMap()
         )
 
+        val headers = clientIp?.let { mapOf("x-original-client-ip" to it) }
+
         val response = httpClient.post<ConnectResponse, ConnectRequest>(
             path = "/api/origins/$origin/connect",
-            body = request
+            body = request,
+            headers = headers
         )
 
         httpClient.updateAccessToken(response.result.accessToken)
