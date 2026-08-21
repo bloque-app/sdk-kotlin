@@ -41,6 +41,14 @@ class BloqueHttpClient(
 
     private var exchangeExpiry: Long = 0
 
+    /**
+     * When true, [ensureExchanged] will not replace [accessToken] with a
+     * fresh sk_ exchange. Set by [pinAccessToken] after `assumeOrigin` so
+     * the origin-operator JWT is what subsequent calls send.
+     */
+    @Volatile
+    private var skipAutoExchange: Boolean = false
+
     @PublishedApi
     internal val json = Json {
         ignoreUnknownKeys = true
@@ -68,7 +76,21 @@ class BloqueHttpClient(
     fun getUrn(): String? = urn
 
     fun updateAccessToken(token: String) {
-        this.accessToken = token
+        synchronized(this) {
+            this.accessToken = token
+            this.skipAutoExchange = false
+        }
+    }
+
+    /**
+     * Pin a JWT (typically `kind: origin-operator`) so ApiKey auto-exchange
+     * cannot overwrite it. [updateAccessToken] clears the pin.
+     */
+    fun pinAccessToken(token: String) {
+        synchronized(this) {
+            this.accessToken = token
+            this.skipAutoExchange = true
+        }
     }
 
     fun updateUrn(urn: String) {
@@ -86,10 +108,12 @@ class BloqueHttpClient(
      */
     fun ensureExchanged() {
         if (config.auth !is AuthConfig.ApiKey) return
+        if (skipAutoExchange) return
         val now = System.currentTimeMillis()
         if (accessToken != null && now < exchangeExpiry - EXCHANGE_REFRESH_BUFFER_MS) return
 
         synchronized(this) {
+            if (skipAutoExchange) return
             val nowInner = System.currentTimeMillis()
             if (accessToken != null && nowInner < exchangeExpiry - EXCHANGE_REFRESH_BUFFER_MS) return
 

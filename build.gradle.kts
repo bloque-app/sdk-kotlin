@@ -6,7 +6,7 @@ plugins {
 
 allprojects {
     group = "app.bloque.sdk"
-    version = "0.0.30"
+    version = "0.0.31"
 
     repositories {
         mavenCentral()
@@ -58,5 +58,14 @@ subprojects {
                 url.set("https://github.com/bloque-app/sdk-kotlin")
             }
         }
+    }
+
+    dependencies {
+        add("testImplementation", kotlin("test"))
+        add("testImplementation", "com.squareup.okhttp3:mockwebserver:4.12.0")
+    }
+
+    tasks.named<Test>("test") {
+        useJUnitPlatform()
     }
 }

@@ -52,6 +52,35 @@ class OrgsClient constructor(
         return mapOrganization(response.result.organization)
     }
 
+    /**
+     * Assume origin-operator credentials for [namespace].
+     *
+     * `POST /api/origins/{namespace}/as` with the current user JWT. The
+     * 15-minute `kind: origin-operator` token is pinned on this session so
+     * subsequent `identity.apiKeys.create` calls mint origin-bound keys
+     * (`bound_origin` is set server-side) and `identity.apiKeys.exchange`
+     * can send `as_identity`.
+     *
+     * The grant is read-only and origin-scoped (`OriginOperatorRoleContext`).
+     * It never includes `*.any`, pay/create, or passkey-as-user. Org-admin
+     * scopes never enter this token.
+     *
+     * @param namespace Origin namespace this org controls
+     * @return Operator JWT (`accessToken`, `expiresIn`, `tokenType`)
+     */
+    fun assumeOrigin(namespace: String): AssumeOriginResult {
+        val response = httpClient.post<AssumeOriginResponseWire, Map<String, String>>(
+            path = "/api/origins/$namespace/as",
+            body = emptyMap()
+        )
+        httpClient.pinAccessToken(response.accessToken)
+        return AssumeOriginResult(
+            accessToken = response.accessToken,
+            expiresIn = response.expiresIn,
+            tokenType = response.tokenType
+        )
+    }
+
     private fun mapOrganization(wire: OrganizationWire): Organization {
         val orgType = when (wire.orgType) {
             "business" -> OrgType.BUSINESS
