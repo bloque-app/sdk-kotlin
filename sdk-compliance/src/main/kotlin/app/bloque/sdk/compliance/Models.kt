@@ -24,6 +24,13 @@ enum class KycVerificationStatus {
 
 /**
  * Parameters for starting KYC verification
+ *
+ * [accompliceType] and [webhookUrl] are accepted here for forward
+ * compatibility but are **not currently sent to the API** — the
+ * `POST /compliance` controller's request body only reads `urn`/`type`
+ * today, so both fields would be silently dropped server-side. Kept as
+ * public params rather than removed outright in case a future server
+ * revision starts honoring them.
  */
 data class KycVerificationParams @JvmOverloads constructor(
     val urn: String,
@@ -40,13 +47,103 @@ data class GetKycVerificationParams constructor(
     val urn: String
 )
 
+/** A single automated verification check the compliance provider ran. */
+data class ComplianceVerificationCheck @JvmOverloads constructor(
+    val verified: Boolean,
+    val comment: String,
+    val declineReasons: List<String> = emptyList()
+)
+
+/** The database/watchlist screening check, which additionally reports which databases were checked. */
+data class ComplianceDatabaseScreeningCheck @JvmOverloads constructor(
+    val verified: Boolean,
+    val comment: String,
+    val declineReasons: List<String> = emptyList(),
+    val databases: List<String> = emptyList()
+)
+
+/** All automated checks the compliance provider ran for a verification. */
+data class ComplianceVerificationChecks @JvmOverloads constructor(
+    val profile: ComplianceVerificationCheck,
+    val document: ComplianceVerificationCheck,
+    val facial: ComplianceVerificationCheck? = null,
+    val databaseScreening: ComplianceDatabaseScreeningCheck,
+    val adverseMedia: ComplianceVerificationCheck? = null
+)
+
+/** Applicant details as extracted/confirmed by the compliance provider. */
+data class ComplianceApplicant @JvmOverloads constructor(
+    val firstName: String,
+    val lastName: String,
+    val dob: String,
+    val gender: String,
+    val nationality: String,
+    val residenceCountry: String,
+    val email: String? = null,
+    val phone: String? = null
+)
+
+/** A single identity document the provider extracted during verification. */
+data class ComplianceVerificationDocument @JvmOverloads constructor(
+    val type: String,
+    val mappedType: String,
+    val documentNumber: String,
+    val issueDate: String? = null,
+    val expiryDate: String? = null,
+    val issuingAuthority: String? = null,
+    val status: String
+)
+
+/** Client network/geo context captured at verification time, if available. */
+data class ComplianceClientInfo @JvmOverloads constructor(
+    val ip: String,
+    val countryCode: String,
+    val city: String? = null
+)
+
+/**
+ * The provider-agnostic, standardized verification result — present once the
+ * provider has actually returned a verdict (not while a verification is
+ * still awaiting completion).
+ */
+data class ComplianceVerificationResult @JvmOverloads constructor(
+    val verified: Boolean,
+    val providerReference: String,
+    val checks: ComplianceVerificationChecks,
+    val applicant: ComplianceApplicant,
+    val documents: List<ComplianceVerificationDocument> = emptyList(),
+    val clientInfo: ComplianceClientInfo? = null,
+    val faceMatchConfidence: Double? = null,
+    val declineReasons: List<String> = emptyList()
+)
+
 /**
  * KYC verification response
  */
 data class KycVerificationResponse @JvmOverloads constructor(
     val status: KycVerificationStatus,
     val url: String,
-    val completedAt: String? = null
+    val completedAt: String? = null,
+    /** The standardized verification result, once the provider has returned a verdict. */
+    val result: ComplianceVerificationResult? = null,
+    /** Status of the underlying document image downloads (e.g. `"pending"`, `"complete"`, `"partial"`, `"failed"`, `"skipped"`). */
+    val documentsStatus: String? = null
+)
+
+/** A single document image on file for a KYC verification. */
+data class KycDocument @JvmOverloads constructor(
+    val documentType: String,
+    val side: String,
+    val imageS3Key: String? = null,
+    val imageSizeBytes: Long? = null,
+    /** Short-lived presigned URL to view the image, when available. */
+    val downloadUrl: String? = null
+)
+
+/** Response of [KycClient.getDocuments]. */
+data class KycDocumentsResult @JvmOverloads constructor(
+    val documentsStatus: String? = null,
+    val documents: List<KycDocument> = emptyList()
 )
 
 // ============================================
@@ -144,7 +241,19 @@ data class TierRequirementStatus @JvmOverloads constructor(
      * `manual_review` declaration with no accompanying document).
      * `null`/`true` preserves the usual kind-based uploadable default.
      */
-    val requiresUpload: Boolean? = null
+    val requiresUpload: Boolean? = null,
+    /**
+     * ISO-8601. Set only while this requirement reads [RequirementEvidenceStatus.SATISFIED]
+     * purely because of a rollout `enforcement_starts_at` window (a TOS document
+     * cutoff, or a generic requirement's own cutoff) — never for the
+     * pre-existing `grace_period_days` window, and never from any other
+     * requirement kind's expiry. Lets a client still prompt "you have until
+     * X to accept/submit" even though nothing is currently blocking the
+     * identity, which matters exactly because nothing is blocking them:
+     * [TierStatus.missingRequirements]/[TierStatus.verificationFlow] go
+     * quiet for the whole window otherwise.
+     */
+    val graceUntil: String? = null
 )
 
 /** Status of a single tier level, including all of its requirements. */
@@ -175,6 +284,76 @@ data class VerificationFlowHandoff(
 
 /** Parameters for reading an identity's compliance tier status. */
 data class GetTierStatusParams(val urn: String)
+
+// ============================================
+// Self-Servable Requirement Documents
+// (independent of the hosted verification gate — the identity's own JWT,
+// or a service credential acting on its behalf, can call these directly)
+// ============================================
+
+/** Parameters for [TiersClient.createRequirementUploadIntent]. */
+data class CreateRequirementUploadIntentParams @JvmOverloads constructor(
+    val urn: String,
+    val requirementKey: String,
+    /** Allowed: `image/jpeg`, `image/png`, `image/webp`, `application/pdf`. */
+    val contentType: String,
+    /** Declared size, in bytes. Validated fail-fast; the server also
+     * re-validates the actual object size once uploaded. */
+    val sizeBytes: Long? = null
+)
+
+/** A presigned upload URL for a single requirement's evidence document. */
+data class RequirementUploadIntent @JvmOverloads constructor(
+    /** The server-derived S3 key — pass to [ConfirmRequirementUploadParams.s3Key]. */
+    val key: String,
+    /** Presigned URL for a direct PUT upload. */
+    val uploadUrl: String,
+    val contentType: String,
+    val acl: String,
+    val serverSideEncryption: String,
+    val expiresInSeconds: Int,
+    val maxSizeBytes: Long
+)
+
+/** Parameters for [TiersClient.confirmRequirementUpload]. */
+data class ConfirmRequirementUploadParams @JvmOverloads constructor(
+    val urn: String,
+    val requirementKey: String,
+    /** The [RequirementUploadIntent.key] used for the completed PUT. */
+    val s3Key: String,
+    val documentType: String,
+    val side: String? = null,
+    val originalFilename: String? = null
+)
+
+/** Parameters for [TiersClient.listRequirementDocuments]. */
+data class ListRequirementDocumentsParams(
+    val urn: String,
+    val requirementKey: String
+)
+
+/**
+ * A single evidence document recorded for a tier requirement. Recording it
+ * does not by itself satisfy the requirement — a reviewer decision still
+ * has to land (see [RequirementEvidenceStatus.PENDING_REVIEW]).
+ */
+data class RequirementDocument @JvmOverloads constructor(
+    val id: String,
+    val complianceId: String? = null,
+    val identityUrn: String? = null,
+    val requirementKey: String? = null,
+    val documentType: String,
+    val side: String,
+    val imageS3Key: String? = null,
+    val imageSizeBytes: Long? = null,
+    val contentType: String? = null,
+    val originalFilename: String? = null,
+    val sha256: String? = null,
+    val uploadedBy: String? = null,
+    val createdAt: String? = null,
+    /** Short-lived presigned download URL — only populated by [TiersClient.listRequirementDocuments]. */
+    val downloadUrl: String? = null
+)
 
 /**
  * An identity's effective compliance tier, per-level requirement status,
@@ -239,7 +418,7 @@ data class StartTosGateParams(
     val returnUrl: String
 )
 
-/** Parameters shared by [TosGateClient.init] and [TosGateClient.accept]. */
+/** Parameters shared by [TosGateClient.init] and [TosGateClient.challenge]. */
 data class TosGateInitParams(val token: String)
 
 data class TosGateDocument(
@@ -250,7 +429,7 @@ data class TosGateDocument(
     val content: String
 )
 
-data class TosGateInitResult(
+data class TosGateInitResult @JvmOverloads constructor(
     val document: TosGateDocument,
     /** Single-use acceptance nonce — pass to `accept()`. */
     val csrfToken: String,
@@ -264,8 +443,75 @@ data class TosGateInitResult(
      * hosted page (e.g. a WebView chrome) — the hosted page itself already
      * applies this automatically.
      */
-    val accentColor: String? = null
+    val accentColor: String? = null,
+    /** The calling origin's display name, for replacing the hosted page's
+     * default "bloque" wordmark. `null`/blank keeps the page default. */
+    val developerName: String? = null,
+    /**
+     * Whether this identity should be offered a WebAuthn passkey step
+     * (see [TosGateClient.challenge]). `false` means the gate is a plain
+     * click-to-accept.
+     */
+    val passkeyRequired: Boolean = false
 )
+
+/**
+ * The challenge a browser's authenticator must answer to register a
+ * passkey as this identity's PassAccount device. Bound to a specific chain
+ * block ([context]) with a limited answer window ([expiresAtBlock]) — mint
+ * it as late as possible (see [TosGateClient.challenge]).
+ */
+data class TosGatePasskeyChallenge @JvmOverloads constructor(
+    val challenge: String,
+    val context: Long,
+    /** Last block the challenge can still be answered at. */
+    val expiresAtBlock: Long,
+    val userId: String,
+    val userName: String,
+    /** 0x-hex public key address for the account being activated. */
+    val publicAddress: String
+)
+
+/**
+ * Result of [TosGateClient.challenge]. [passkey] is `null` when this
+ * identity has no account ready for a device — the gate should then show
+ * no passkey step.
+ */
+data class TosGateChallengeResult(val passkey: TosGatePasskeyChallenge?)
+
+/**
+ * The raw WebAuthn registration parts produced by a browser's authenticator,
+ * as an alternative to a pre-built [TosGateAttestation.DeviceAttestation].
+ * The origins controller frames these into the same attestation shape
+ * itself. All byte fields are base64url (what a browser puts in a JSON body).
+ */
+data class TosGatePasskeyRegistration @JvmOverloads constructor(
+    /** `PublicKeyCredential.rawId`. */
+    val credentialId: String,
+    /** `getAuthenticatorData()`. */
+    val authenticatorData: String,
+    /** `clientDataJSON`. */
+    val clientData: String,
+    /** `getPublicKey()`, SPKI. */
+    val publicKey: String,
+    /** The [TosGatePasskeyChallenge.context] this challenge was minted with. */
+    val context: Long
+)
+
+/**
+ * Either a finished Pass device attestation, or the raw passkey registration
+ * parts for the server to frame into one — mirrors the API's `oneOf` for
+ * `device_attestation`/`passkey` on `POST /api/tos-gate/accept`. `null` on
+ * [TosGateAcceptParams.attestation] means a plain click-to-accept with no
+ * device handoff.
+ */
+sealed class TosGateAttestation {
+    /** A pre-built Pass device attestation (0x-hex SCALE-encoded `PassDeviceAttestation`). */
+    data class DeviceAttestation(val hex: String) : TosGateAttestation()
+
+    /** The raw WebAuthn registration the hosted gate/SDK collected. */
+    data class Passkey(val registration: TosGatePasskeyRegistration) : TosGateAttestation()
+}
 
 data class TosGateAcceptParams @JvmOverloads constructor(
     /** The capability token returned by `start()`. */
@@ -273,11 +519,13 @@ data class TosGateAcceptParams @JvmOverloads constructor(
     /** The single-use nonce returned by `init()`. */
     val csrfToken: String,
     /**
-     * Optional Pass device attestation (0x-hex SCALE-encoded
-     * `PassDeviceAttestation`). When present, accepting the terms also hands
-     * control of the identity's Kreivo PassAccount to that device.
+     * When present, accepting the terms also hands control of the
+     * identity's Kreivo PassAccount to the device behind this attestation —
+     * either a pre-built [TosGateAttestation.DeviceAttestation] or the raw
+     * [TosGateAttestation.Passkey] parts for the server to frame itself.
+     * `null` is a plain click-to-accept with no device handoff.
      */
-    val deviceAttestation: String? = null
+    val attestation: TosGateAttestation? = null
 )
 
 data class TosAcceptanceRecord(
@@ -355,7 +603,7 @@ data class PendingVerificationRequirement @JvmOverloads constructor(
     val submittedAt: String? = null
 )
 
-data class VerificationGateInitResult(
+data class VerificationGateInitResult @JvmOverloads constructor(
     /** Requirements the identity can still act on. */
     val requirements: List<VerificationRequirement>,
     /** Requirements already submitted and awaiting review. */
@@ -370,7 +618,10 @@ data class VerificationGateInitResult(
      * hosted page — the hosted page itself already applies this
      * automatically.
      */
-    val accentColor: String? = null
+    val accentColor: String? = null,
+    /** The calling origin's display name, for replacing the hosted page's
+     * default "bloque" wordmark. `null`/blank keeps the page default. */
+    val developerName: String? = null
 )
 
 data class SubmitDocumentConfirmation @JvmOverloads constructor(
@@ -413,12 +664,16 @@ data class VerificationGateSubmitResult(
 // Wire Types (Internal)
 // ============================================
 
+/**
+ * `accomplice_type`/`webhook_url` are deliberately absent here: the
+ * `POST /compliance` controller's actual body type only reads `urn`/`type`,
+ * so sending them would do nothing. See [KycVerificationParams]'s doc
+ * comment.
+ */
 @Serializable
 internal data class KycVerificationRequestWire(
     val urn: String,
-    val type: String = "kyc",
-    @SerialName("accomplice_type") val accompliceType: String = "person",
-    @SerialName("webhook_url") val webhookUrl: String? = null
+    val type: String = "kyc"
 )
 
 /** Direct API response (no result wrapper) for start and get */
@@ -430,7 +685,90 @@ internal data class KycVerificationResponseDirect(
     @SerialName("completed_at") val completedAt: String? = null,
     val type: String? = null,
     val level: String? = null,
-    val provider: String? = null
+    val provider: String? = null,
+    val result: ComplianceVerificationResultWire? = null,
+    @SerialName("documents_status") val documentsStatus: String? = null
+)
+
+@Serializable
+internal data class ComplianceVerificationCheckWire(
+    val verified: Boolean,
+    val comment: String,
+    @SerialName("decline_reasons") val declineReasons: List<String> = emptyList()
+)
+
+@Serializable
+internal data class ComplianceDatabaseScreeningCheckWire(
+    val verified: Boolean,
+    val comment: String,
+    @SerialName("decline_reasons") val declineReasons: List<String> = emptyList(),
+    val databases: List<String> = emptyList()
+)
+
+@Serializable
+internal data class ComplianceVerificationChecksWire(
+    val profile: ComplianceVerificationCheckWire,
+    val document: ComplianceVerificationCheckWire,
+    val facial: ComplianceVerificationCheckWire? = null,
+    @SerialName("database_screening") val databaseScreening: ComplianceDatabaseScreeningCheckWire,
+    @SerialName("adverse_media") val adverseMedia: ComplianceVerificationCheckWire? = null
+)
+
+@Serializable
+internal data class ComplianceApplicantWire(
+    @SerialName("first_name") val firstName: String,
+    @SerialName("last_name") val lastName: String,
+    val dob: String,
+    val gender: String,
+    val nationality: String,
+    @SerialName("residence_country") val residenceCountry: String,
+    val email: String? = null,
+    val phone: String? = null
+)
+
+@Serializable
+internal data class ComplianceVerificationDocumentWire(
+    val type: String,
+    @SerialName("mapped_type") val mappedType: String,
+    @SerialName("document_number") val documentNumber: String,
+    @SerialName("issue_date") val issueDate: String? = null,
+    @SerialName("expiry_date") val expiryDate: String? = null,
+    @SerialName("issuing_authority") val issuingAuthority: String? = null,
+    val status: String
+)
+
+@Serializable
+internal data class ComplianceClientInfoWire(
+    val ip: String,
+    @SerialName("country_code") val countryCode: String,
+    val city: String? = null
+)
+
+@Serializable
+internal data class ComplianceVerificationResultWire(
+    val verified: Boolean,
+    @SerialName("provider_reference") val providerReference: String,
+    val checks: ComplianceVerificationChecksWire,
+    val applicant: ComplianceApplicantWire,
+    val documents: List<ComplianceVerificationDocumentWire> = emptyList(),
+    @SerialName("client_info") val clientInfo: ComplianceClientInfoWire? = null,
+    @SerialName("face_match_confidence") val faceMatchConfidence: Double? = null,
+    @SerialName("decline_reasons") val declineReasons: List<String> = emptyList()
+)
+
+@Serializable
+internal data class KycDocumentWire(
+    @SerialName("document_type") val documentType: String,
+    val side: String,
+    @SerialName("image_s3_key") val imageS3Key: String? = null,
+    @SerialName("image_size_bytes") val imageSizeBytes: Long? = null,
+    @SerialName("download_url") val downloadUrl: String? = null
+)
+
+@Serializable
+internal data class KycDocumentsResponseWire(
+    @SerialName("documents_status") val documentsStatus: String? = null,
+    val documents: List<KycDocumentWire> = emptyList()
 )
 
 @Serializable
@@ -467,7 +805,51 @@ internal data class TierRequirementStatusWire(
     val title: String? = null,
     val fields: List<RequirementFieldWire>? = null,
     @SerialName("submitted_at") val submittedAt: String? = null,
-    @SerialName("requires_upload") val requiresUpload: Boolean? = null
+    @SerialName("requires_upload") val requiresUpload: Boolean? = null,
+    @SerialName("grace_until") val graceUntil: String? = null
+)
+
+@Serializable
+internal data class CreateRequirementUploadIntentRequestWire(
+    @SerialName("content_type") val contentType: String,
+    @SerialName("size_bytes") val sizeBytes: Long? = null
+)
+
+@Serializable
+internal data class RequirementUploadIntentResponseWire(
+    val key: String,
+    @SerialName("upload_url") val uploadUrl: String,
+    @SerialName("content_type") val contentType: String,
+    val acl: String,
+    @SerialName("server_side_encryption") val serverSideEncryption: String,
+    @SerialName("expires_in_seconds") val expiresInSeconds: Int,
+    @SerialName("max_size_bytes") val maxSizeBytes: Long
+)
+
+@Serializable
+internal data class ConfirmRequirementUploadRequestWire(
+    @SerialName("s3_key") val s3Key: String,
+    @SerialName("document_type") val documentType: String,
+    val side: String? = null,
+    @SerialName("original_filename") val originalFilename: String? = null
+)
+
+@Serializable
+internal data class RequirementDocumentResponseWire(
+    val id: String,
+    @SerialName("compliance_id") val complianceId: String? = null,
+    @SerialName("identity_urn") val identityUrn: String? = null,
+    @SerialName("requirement_key") val requirementKey: String? = null,
+    @SerialName("document_type") val documentType: String,
+    val side: String,
+    @SerialName("image_s3_key") val imageS3Key: String? = null,
+    @SerialName("image_size_bytes") val imageSizeBytes: Long? = null,
+    @SerialName("content_type") val contentType: String? = null,
+    @SerialName("original_filename") val originalFilename: String? = null,
+    val sha256: String? = null,
+    @SerialName("uploaded_by") val uploadedBy: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("download_url") val downloadUrl: String? = null
 )
 
 @Serializable
@@ -523,13 +905,40 @@ internal data class TosGateInitResponseWire(
     @SerialName("csrf_token") val csrfToken: String,
     @SerialName("return_url") val returnUrl: String,
     @SerialName("show_home") val showHome: Boolean = true,
-    @SerialName("accent_color") val accentColor: String? = null
+    @SerialName("accent_color") val accentColor: String? = null,
+    @SerialName("developer_name") val developerName: String? = null,
+    @SerialName("passkey_required") val passkeyRequired: Boolean = false
+)
+
+@Serializable
+internal data class TosGatePasskeyChallengeWire(
+    val challenge: String,
+    val context: Long,
+    @SerialName("expires_at_block") val expiresAtBlock: Long,
+    @SerialName("user_id") val userId: String,
+    @SerialName("user_name") val userName: String,
+    @SerialName("public_address") val publicAddress: String
+)
+
+@Serializable
+internal data class TosGateChallengeResponseWire(
+    val passkey: TosGatePasskeyChallengeWire? = null
+)
+
+@Serializable
+internal data class TosGatePasskeyRegistrationWire(
+    @SerialName("credential_id") val credentialId: String,
+    @SerialName("authenticator_data") val authenticatorData: String,
+    @SerialName("client_data") val clientData: String,
+    @SerialName("public_key") val publicKey: String,
+    val context: Long
 )
 
 @Serializable
 internal data class TosGateAcceptRequestWire(
     @SerialName("csrf_token") val csrfToken: String,
-    @SerialName("device_attestation") val deviceAttestation: String? = null
+    @SerialName("device_attestation") val deviceAttestation: String? = null,
+    val passkey: TosGatePasskeyRegistrationWire? = null
 )
 
 @Serializable
@@ -582,7 +991,8 @@ internal data class VerificationGateInitResponseWire(
     @SerialName("pending_requirements") val pendingRequirements: List<PendingVerificationRequirementWire>? = null,
     @SerialName("csrf_token") val csrfToken: String,
     @SerialName("return_url") val returnUrl: String? = null,
-    @SerialName("accent_color") val accentColor: String? = null
+    @SerialName("accent_color") val accentColor: String? = null,
+    @SerialName("developer_name") val developerName: String? = null
 )
 
 @Serializable

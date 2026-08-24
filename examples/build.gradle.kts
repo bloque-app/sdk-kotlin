@@ -32,7 +32,10 @@ val kotlinExamples = listOf(
     "Bancolombia" to "app.bloque.examples.BancolombiaExampleKt",
     "Breb" to "app.bloque.examples.BrebExampleKt",
     "BrebSwap" to "app.bloque.examples.BrebSwapExampleKt",
-    "ComplianceGates" to "app.bloque.examples.ComplianceGatesExampleKt"
+    "ComplianceGates" to "app.bloque.examples.ComplianceGatesExampleKt",
+    "UsAccount" to "app.bloque.examples.UsAccountExampleKt",
+    "Orgs" to "app.bloque.examples.OrgsExampleKt",
+    "RecurringCardSubscription" to "app.bloque.examples.RecurringCardSubscriptionExampleKt"
 )
 
 kotlinExamples.forEach { (name, className) ->

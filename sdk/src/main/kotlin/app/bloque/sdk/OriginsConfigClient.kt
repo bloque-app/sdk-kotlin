@@ -23,8 +23,9 @@ import kotlinx.serialization.json.put
  * (whichever origin/key it was built with) — pass them explicitly only to
  * target a different origin than the one you're authenticated as.
  *
- * These four keys are exactly the ones the hosted gates read at
- * `/tos-gate/start` and `/verification-gate/start` time:
+ * These five keys are exactly the ones the hosted gates read at
+ * `/tos-gate/start` and `/verification-gate/start` time
+ * (`SELF_SERVICE_METADATA_KEYS` in the origins service):
  * - [company] — display name substituted for `{{developer_name}}` in the
  *   TOS document template.
  * - [tosGateShowHome] — whether the TOS gate's intro screens play before
@@ -34,6 +35,9 @@ import kotlinx.serialization.json.put
  * - [verificationGateReturnUrlAllowlist] — additional `return_url` values
  *   the verification gate will accept for this origin, unioned with the
  *   deployment-wide allowlist.
+ * - [gateFrameAncestorsAllowlist] — additional `frame-ancestors` CSP
+ *   sources the hosted gates will allow when embedded in an iframe, unioned
+ *   with the deployment-wide allowlist.
  */
 data class UpdateOriginMetadataParams @JvmOverloads constructor(
     val originName: String? = null,
@@ -41,7 +45,8 @@ data class UpdateOriginMetadataParams @JvmOverloads constructor(
     val company: String? = null,
     val tosGateShowHome: Boolean? = null,
     val gateAccentColor: String? = null,
-    val verificationGateReturnUrlAllowlist: List<String>? = null
+    val verificationGateReturnUrlAllowlist: List<String>? = null,
+    val gateFrameAncestorsAllowlist: List<String>? = null
 )
 
 data class UpdateOriginMetadataResult(
@@ -74,7 +79,8 @@ class OriginsConfigClient internal constructor(
     /**
      * Patch this origin's own presentation metadata (`company`,
      * `tosGateShowHome`, `gateAccentColor`,
-     * `verificationGateReturnUrlAllowlist`). `originName`/`apiKey` default
+     * `verificationGateReturnUrlAllowlist`, `gateFrameAncestorsAllowlist`).
+     * `originName`/`apiKey` default
      * to this SDK instance's own config, so with secret-key/origin-key
      * auth you typically only set the metadata fields:
      *
@@ -105,6 +111,9 @@ class OriginsConfigClient internal constructor(
             params.gateAccentColor?.let { put("gate_accent_color", it) }
             params.verificationGateReturnUrlAllowlist?.let { list ->
                 put("verification_gate_return_url_allowlist", JsonArray(list.map { JsonPrimitive(it) }))
+            }
+            params.gateFrameAncestorsAllowlist?.let { list ->
+                put("gate_frame_ancestors_allowlist", JsonArray(list.map { JsonPrimitive(it) }))
             }
         }
 

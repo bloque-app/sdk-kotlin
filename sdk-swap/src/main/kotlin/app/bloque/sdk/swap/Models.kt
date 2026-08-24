@@ -83,7 +83,13 @@ data class FeeComponent @JvmOverloads constructor(
     val value: Double,
     val percentage: Double? = null,
     val pair: String? = null,
-    val amount: Double? = null
+    val amount: Double? = null,
+    /**
+     * Pins this fee component to a specific oracle's rate row rather than
+     * the latest unexpired row for the pair. Only meaningful when
+     * [type] is [FeeComponentType.RATE]. Null means "latest unexpired row".
+     */
+    val serviceName: String? = null
 )
 
 enum class FeeComponentType(val value: String) {
@@ -110,6 +116,96 @@ data class ListBanksResult(
 data class Bank(
     val code: String,
     val name: String
+)
+
+// ============================================
+// Order Webhook Payloads
+//
+// Public (non-internal) @Serializable models: these describe the JSON body
+// POSTed to `webhookUrl` on any *OrderParams, for consumers to deserialize
+// themselves (e.g. `Json.decodeFromString<OrderWebhookEvent>(requestBody)`).
+// ============================================
+
+/**
+ * Event name constants for [OrderWebhookEvent.event].
+ */
+object OrderWebhookEventName {
+    /** Terminal-only: fired once when the order reaches "completed" or "failed". */
+    const val STATUS_UPDATED = "order.status.updated"
+
+    /**
+     * Non-terminal: fired when Brale's `payment.completed` settles the ACH
+     * debit funding a US-bank order, ahead of the order's own terminal
+     * status (tracked separately via the underlying transfer). Carries
+     * [OrderWebhookEvent.payment].
+     */
+    const val PAYMENT_ON_ACH_RAIL = "order.payment_on_ach_rail"
+}
+
+/**
+ * Brale transfer amount attached to [OrderWebhookPayment].
+ */
+@Serializable
+data class OrderWebhookPaymentAmount(
+    val value: String,
+    val currency: String
+)
+
+/**
+ * Brale payment data attached to `order.payment_on_ach_rail` notifications.
+ * Passed through mostly as-is from Brale's `payment.completed` event.
+ */
+@Serializable
+data class OrderWebhookPayment(
+    /** Brale transfer id (per Brale, `data.id` on `payment.completed` is the transfer id). */
+    val id: String,
+    val amount: OrderWebhookPaymentAmount,
+    val direction: String,
+    val type: String
+)
+
+/**
+ * Order snapshot embedded in every order webhook event. All amounts are
+ * strings (raw bigint columns serialized as strings).
+ */
+@Serializable
+data class SerializedSwapOrder(
+    @SerialName("order_sig") val orderSig: String,
+    @SerialName("swap_sig") val swapSig: String,
+    @SerialName("rate_sig") val rateSig: String,
+    val maker: String,
+    val taker: String,
+    @SerialName("from_medium") val fromMedium: String,
+    @SerialName("from_asset") val fromAsset: String,
+    @SerialName("from_amount") val fromAmount: String,
+    @SerialName("to_medium") val toMedium: String,
+    @SerialName("to_asset") val toAsset: String,
+    @SerialName("to_amount") val toAmount: String,
+    val status: String,
+    val at: Long,
+    @SerialName("graph_id") val graphId: String,
+    val metadata: Map<String, String>? = null,
+    @SerialName("webhook_url") val webhookUrl: String? = null,
+    @SerialName("failure_reason") val failureReason: String? = null,
+    @SerialName("failure_details") val failureDetails: Map<String, String>? = null
+)
+
+/**
+ * Envelope for both order webhook event types:
+ *  - [OrderWebhookEventName.STATUS_UPDATED] (terminal-only; `previousStatus`
+ *    set, `payment` absent).
+ *  - [OrderWebhookEventName.PAYMENT_ON_ACH_RAIL] (non-terminal; `payment` set,
+ *    `previousStatus`/`error` absent).
+ */
+@Serializable
+data class OrderWebhookEvent(
+    val event: String,
+    val order: SerializedSwapOrder,
+    val timestamp: String,
+    @SerialName("previous_status") val previousStatus: String? = null,
+    val error: String? = null,
+    /** Present only on [OrderWebhookEventName.PAYMENT_ON_ACH_RAIL] events. */
+    val payment: OrderWebhookPayment? = null
 )
 
 // ============================================
@@ -157,7 +253,8 @@ internal data class FeeComponentWire(
     val value: Double,
     val percentage: Double? = null,
     val pair: String? = null,
-    val amount: Double? = null
+    val amount: Double? = null,
+    @SerialName("service_name") val serviceName: String? = null
 )
 
 @Serializable
@@ -253,6 +350,16 @@ data class CreatePseOrderParams @JvmOverloads constructor(
     val rateSig: String,
     val toMedium: String,
     val depositInformation: DepositInformation,
+    /**
+     * The URL the payer's bank redirects them back to once the PSE payment
+     * flow ends (approved, declined, or abandoned). PSE is a bank-redirect
+     * rail — this is a hard API requirement with no default or placeholder;
+     * orders missing it are rejected before the payment gateway is ever
+     * contacted. Sent on the request as both `args.redirect_url` (read by
+     * `ModulePSE` when the node auto-executes) and `metadata.redirect_url`
+     * (read by templates that source it from the persisted order metadata).
+     */
+    val redirectUrl: String,
     val amountSrc: String? = null,
     val amountDst: String? = null,
     val type: OrderType? = null,
@@ -383,6 +490,58 @@ internal data class CreateBrebOrderInputWire(
     @SerialName("webhook_url") val webhookUrl: String? = null
 )
 
+// ============================================
+// BRE-B Deposit Order (cash-in: BRE-B COP -> Kusama) - Request Models
+// ============================================
+
+/**
+ * Parameters for creating a BRE-B deposit (cash-in) order: BRE-B COP -> Kusama.
+ *
+ * Unlike [CreateBrebOrderParams] (the payout/cash-out direction), this
+ * direction needs no client-supplied execution `args` — the underlying
+ * `breb-deposit` module registers a temporary deposit key and derives every
+ * argument it needs (`expected_owner_urn`, `reference`, `amount`) from the
+ * order itself; only the receiving ledger account is caller-supplied, via
+ * [depositInformation].
+ */
+data class CreateBrebDepositOrderParams @JvmOverloads constructor(
+    val rateSig: String,
+    /** Ledger account URN that will receive the deposited funds. */
+    val depositInformation: DepositInformation,
+    val amountSrc: String? = null,
+    val amountDst: String? = null,
+    val type: OrderType? = null,
+    val nodeId: String? = null,
+    val metadata: Map<String, String>? = null,
+    val idempotencyKey: String? = null,
+    val webhookUrl: String? = null
+)
+
+data class CreateBrebDepositOrderResult(
+    val order: SwapOrder,
+    val execution: ExecutionResult?,
+    val requestId: String
+)
+
+// ============================================
+// BRE-B Deposit Order - Wire Models
+// ============================================
+
+@Serializable
+internal data class CreateBrebDepositOrderInputWire(
+    @SerialName("taker_urn") val takerUrn: String,
+    val type: String,
+    @SerialName("rate_sig") val rateSig: String,
+    @SerialName("from_medium") val fromMedium: String = "breb",
+    @SerialName("to_medium") val toMedium: String = "kusama",
+    @SerialName("deposit_information") val depositInformation: DepositInformationWire,
+    @SerialName("amount_src") val amountSrc: String? = null,
+    @SerialName("amount_dst") val amountDst: String? = null,
+    @SerialName("node_id") val nodeId: String? = null,
+    val metadata: Map<String, String>? = null,
+    @SerialName("webhook_url") val webhookUrl: String? = null
+)
+
 data class SwapOrder(
     val id: String,
     val orderSig: String,
@@ -454,12 +613,13 @@ internal data class CustomerDataWire(
 
 @Serializable
 internal data class PseOrderArgsWire(
-    @SerialName("bank_code") val bankCode: String,
+    @SerialName("bank_code") val bankCode: String? = null,
     @SerialName("user_type") val userType: String? = null,
     @SerialName("customer_email") val customerEmail: String? = null,
     @SerialName("user_legal_id_type") val userLegalIdType: String? = null,
     @SerialName("user_legal_id") val userLegalId: String? = null,
-    @SerialName("customer_data") val customerData: CustomerDataWire? = null
+    @SerialName("customer_data") val customerData: CustomerDataWire? = null,
+    @SerialName("redirect_url") val redirectUrl: String? = null
 )
 
 @Serializable
@@ -519,6 +679,300 @@ internal data class ExecutionResultDetailsWire(
 @Serializable
 internal data class ExecutionHowWire(
     val url: String? = null
+)
+
+// ============================================
+// Cancel Subscription - Request/Response Models
+// ============================================
+
+/**
+ * Result status of a cancel-subscription call.
+ */
+enum class CancelSubscriptionStatus(val value: String) {
+    /** Cancellation flag was just set; future occurrences will short-circuit. */
+    CANCELLATION_PENDING("cancellation_pending"),
+    /** The flag was already set by a previous call (idempotent no-op). */
+    ALREADY_CANCELLED("already_cancelled"),
+    /** The graph has already terminated (success or failure); nothing to cancel. */
+    GRAPH_DONE("graph_done");
+
+    companion object {
+        @JvmStatic
+        fun fromString(value: String): CancelSubscriptionStatus {
+            return entries.find { it.value == value }
+                ?: throw IllegalArgumentException(
+                    "Unknown cancel-subscription status: $value. Valid values: cancellation_pending, already_cancelled, graph_done"
+                )
+        }
+    }
+}
+
+data class CancelSubscriptionResult(
+    val status: CancelSubscriptionStatus,
+    /** Index of the next-to-fire occurrence, or null if every tick has already resolved. */
+    val cursor: Int?,
+    val orderId: String,
+    val graphId: String
+)
+
+@Serializable
+internal data class CancelSubscriptionResponseWire(
+    val result: CancelSubscriptionResultWire,
+    @SerialName("req_id") val reqId: String
+)
+
+@Serializable
+internal data class CancelSubscriptionResultWire(
+    val status: String,
+    val cursor: Int? = null,
+    @SerialName("order_id") val orderId: String,
+    @SerialName("graph_id") val graphId: String
+)
+
+// ============================================
+// Recurring Card Subscription (recurring-card -> kusama) - Request Models
+// ============================================
+
+/**
+ * Unit for a schedule allocation slice — see [RecurringCardAllocation].
+ */
+enum class AllocationUnit(val value: String) {
+    PERCENT("percent"),
+    CENTS("cents");
+
+    companion object {
+        @JvmStatic
+        fun fromString(value: String): AllocationUnit {
+            return entries.find { it.value == value }
+                ?: throw IllegalArgumentException("Unknown allocation unit: $value. Valid values: percent, cents")
+        }
+    }
+}
+
+/**
+ * One charge slice in a recurring-card schedule. Either a percentage of the
+ * order's total amount or a fixed cents amount, applied per occurrence in
+ * the order the allocations are given (e.g. a trial-then-full-price schedule).
+ */
+data class RecurringCardAllocation @JvmOverloads constructor(
+    val unit: AllocationUnit,
+    val value: Double,
+    val label: String? = null
+)
+
+/**
+ * Opaque internal ledger transfer instruction, forwarded verbatim to the
+ * payout chain. See [RecurringCardDepositInformation.paymentTransfers].
+ */
+data class PaymentTransfer @JvmOverloads constructor(
+    val creditAccountId: String,
+    val amount: String,
+    val reference: String,
+    val metadata: Map<String, String>? = null
+)
+
+/**
+ * Opaque on-chain withdrawal instruction, forwarded verbatim to the payout
+ * chain. See [RecurringCardDepositInformation.paymentWithdrawals].
+ */
+data class PaymentWithdrawal(
+    val coin: String,
+    val address: String,
+    val network: String,
+    val amount: String,
+    val reference: String
+)
+
+/**
+ * Persisted (card-free) schedule details for a recurring-card subscription.
+ * Card/3DS/customer data are deliberately NOT part of this — they are
+ * supplied only via the transient [CreateCardSubscriptionParams.args] at
+ * signup and are never persisted.
+ */
+data class RecurringCardDepositInformation @JvmOverloads constructor(
+    /** Cron expression driving occurrence due dates. */
+    val cron: String,
+    /** Non-empty list of charge slices making up the schedule. */
+    val allocations: List<RecurringCardAllocation>,
+    val customerEmail: String,
+    val startDate: String? = null,
+    val trialDays: Int? = null,
+    val endDate: String? = null,
+    val timezone: String? = null,
+    /** Hard horizon on the number of occurrences; defaults server-side to 24 if neither this nor endDate is set. */
+    val maxOccurrences: Int? = null,
+    /** Customer device IP captured at signup; forwarded to the card processor on each charge. */
+    val ip: String? = null,
+    val paymentTransfers: List<PaymentTransfer>? = null,
+    val paymentWithdrawals: List<PaymentWithdrawal>? = null
+)
+
+/**
+ * Card details used to tokenize a new payment source. Mutually exclusive
+ * with supplying [TokenizeCardArgs.cardToken] on the enclosing args.
+ */
+data class CardDetails(
+    val number: String,
+    val cvc: String,
+    val expMonth: String,
+    val expYear: String,
+    val cardHolder: String
+)
+
+data class CardCustomerData @JvmOverloads constructor(
+    val phoneNumber: String? = null,
+    val fullName: String? = null
+)
+
+/**
+ * Browser fingerprint forwarded for 3DS challenge flows.
+ */
+data class CardBrowserInfo(
+    val browserColorDepth: String,
+    val browserScreenHeight: String,
+    val browserScreenWidth: String,
+    val browserLanguage: String,
+    val browserUserAgent: String,
+    val browserTz: String
+)
+
+/**
+ * Transient tokenization arguments supplied only at signup (`PUT /order`'s
+ * top-level `args`), never persisted to `deposit_information`. Exactly one
+ * of [card] or [cardToken] must be provided.
+ *
+ * Set [isThreeDs] = true for unattended recurring charges (3RI) — required
+ * on most issuers for a card to be chargeable without the cardholder present
+ * on subsequent occurrences.
+ */
+data class TokenizeCardArgs @JvmOverloads constructor(
+    val customerEmail: String,
+    val card: CardDetails? = null,
+    val cardToken: String? = null,
+    val isThreeDs: Boolean? = null,
+    val browserInfo: CardBrowserInfo? = null,
+    val threeDsAuthType: String? = null,
+    val customerData: CardCustomerData? = null
+) {
+    init {
+        require((card == null) != (cardToken == null)) {
+            "Exactly one of card or cardToken must be provided"
+        }
+    }
+}
+
+data class CreateCardSubscriptionParams @JvmOverloads constructor(
+    val rateSig: String,
+    val depositInformation: RecurringCardDepositInformation,
+    val args: TokenizeCardArgs,
+    val amountSrc: String? = null,
+    val amountDst: String? = null,
+    val type: OrderType? = null,
+    val nodeId: String? = null,
+    val metadata: Map<String, String>? = null,
+    val idempotencyKey: String? = null,
+    val webhookUrl: String? = null
+)
+
+data class CreateCardSubscriptionResult(
+    val order: SwapOrder,
+    val execution: ExecutionResult?,
+    val requestId: String
+)
+
+// ============================================
+// Recurring Card Subscription - Wire Models (Internal)
+// ============================================
+
+@Serializable
+internal data class RecurringCardAllocationWire(
+    val unit: String,
+    val value: Double,
+    val label: String? = null
+)
+
+@Serializable
+internal data class PaymentTransferWire(
+    @SerialName("credit_account_id") val creditAccountId: String,
+    val amount: String,
+    val reference: String,
+    val metadata: Map<String, String>? = null
+)
+
+@Serializable
+internal data class PaymentWithdrawalWire(
+    val coin: String,
+    val address: String,
+    val network: String,
+    val amount: String,
+    val reference: String
+)
+
+@Serializable
+internal data class RecurringCardDepositInformationWire(
+    val cron: String,
+    val allocations: List<RecurringCardAllocationWire>,
+    @SerialName("customer_email") val customerEmail: String,
+    @SerialName("start_date") val startDate: String? = null,
+    @SerialName("trial_days") val trialDays: Int? = null,
+    @SerialName("end_date") val endDate: String? = null,
+    val timezone: String? = null,
+    @SerialName("max_occurrences") val maxOccurrences: Int? = null,
+    val ip: String? = null,
+    @SerialName("payment_transfers") val paymentTransfers: List<PaymentTransferWire>? = null,
+    @SerialName("payment_withdrawals") val paymentWithdrawals: List<PaymentWithdrawalWire>? = null
+)
+
+@Serializable
+internal data class CardDetailsWire(
+    val number: String,
+    val cvc: String,
+    @SerialName("exp_month") val expMonth: String,
+    @SerialName("exp_year") val expYear: String,
+    @SerialName("card_holder") val cardHolder: String
+)
+
+@Serializable
+internal data class CardCustomerDataWire(
+    @SerialName("phone_number") val phoneNumber: String? = null,
+    @SerialName("full_name") val fullName: String? = null
+)
+
+@Serializable
+internal data class CardBrowserInfoWire(
+    @SerialName("browser_color_depth") val browserColorDepth: String,
+    @SerialName("browser_screen_height") val browserScreenHeight: String,
+    @SerialName("browser_screen_width") val browserScreenWidth: String,
+    @SerialName("browser_language") val browserLanguage: String,
+    @SerialName("browser_user_agent") val browserUserAgent: String,
+    @SerialName("browser_tz") val browserTz: String
+)
+
+@Serializable
+internal data class TokenizeCardArgsWire(
+    @SerialName("customer_email") val customerEmail: String,
+    val card: CardDetailsWire? = null,
+    @SerialName("card_token") val cardToken: String? = null,
+    @SerialName("is_three_ds") val isThreeDs: Boolean? = null,
+    @SerialName("browser_info") val browserInfo: CardBrowserInfoWire? = null,
+    @SerialName("three_ds_auth_type") val threeDsAuthType: String? = null,
+    @SerialName("customer_data") val customerData: CardCustomerDataWire? = null
+)
+
+@Serializable
+internal data class CreateCardSubscriptionInputWire(
+    @SerialName("taker_urn") val takerUrn: String,
+    val type: String,
+    @SerialName("rate_sig") val rateSig: String,
+    @SerialName("from_medium") val fromMedium: String = "recurring-card",
+    @SerialName("to_medium") val toMedium: String = "kusama",
+    @SerialName("deposit_information") val depositInformation: RecurringCardDepositInformationWire,
+    @SerialName("amount_src") val amountSrc: String? = null,
+    @SerialName("amount_dst") val amountDst: String? = null,
+    val args: TokenizeCardArgsWire,
+    @SerialName("node_id") val nodeId: String? = null,
+    val metadata: Map<String, String>? = null,
+    @SerialName("webhook_url") val webhookUrl: String? = null
 )
 
 // ============================================
@@ -706,6 +1160,83 @@ data class CreateColBankOrderResult(
     val order: SwapOrder,
     val execution: ExecutionResult?,
     val requestId: String
+)
+
+// ============================================
+// US Bank ACH-Pull Order (external-us-bank -> Kusama, USD -> DUSD) - Request Models
+// ============================================
+
+/**
+ * Execution arguments for a US-bank ACH-pull order.
+ *
+ * Resolved server-side into a Brale partner account/address mapping for the
+ * linked bank; `expectedOwnerUrn` is asserted against the resolved owner so
+ * a swap started by one user can never be silently re-pointed at a bank
+ * linked by another.
+ */
+data class UsBankSwapArgs(
+    /** Medium account URN on the `external-us-bank` medium (the linked bank to pull from). */
+    val accountUrn: String,
+    /** Swap order taker URN — typically the same value passed as `taker_urn`. */
+    val expectedOwnerUrn: String
+)
+
+/**
+ * Deposit information for a US-bank ACH-pull order: the Kreivo ledger
+ * account that receives the minted DUSD.
+ */
+data class UsBankDepositInformation(
+    val ledgerAccountId: String
+)
+
+data class CreateUsBankSwapOrderParams @JvmOverloads constructor(
+    val rateSig: String,
+    val depositInformation: UsBankDepositInformation,
+    val args: UsBankSwapArgs,
+    val amountSrc: String? = null,
+    val amountDst: String? = null,
+    val type: OrderType? = null,
+    val nodeId: String? = null,
+    val metadata: Map<String, String>? = null,
+    val idempotencyKey: String? = null,
+    val webhookUrl: String? = null
+)
+
+data class CreateUsBankSwapOrderResult(
+    val order: SwapOrder,
+    val execution: ExecutionResult?,
+    val requestId: String
+)
+
+// ============================================
+// US Bank ACH-Pull Order - Wire Models (Internal)
+// ============================================
+
+@Serializable
+internal data class UsBankSwapArgsWire(
+    @SerialName("account_urn") val accountUrn: String,
+    @SerialName("expected_owner_urn") val expectedOwnerUrn: String
+)
+
+@Serializable
+internal data class UsBankDepositInformationWire(
+    @SerialName("ledger_account_id") val ledgerAccountId: String
+)
+
+@Serializable
+internal data class CreateUsBankSwapOrderInputWire(
+    @SerialName("taker_urn") val takerUrn: String,
+    val type: String,
+    @SerialName("rate_sig") val rateSig: String,
+    @SerialName("from_medium") val fromMedium: String = "external-us-bank",
+    @SerialName("to_medium") val toMedium: String = "kusama",
+    @SerialName("deposit_information") val depositInformation: UsBankDepositInformationWire,
+    @SerialName("amount_src") val amountSrc: String? = null,
+    @SerialName("amount_dst") val amountDst: String? = null,
+    val args: UsBankSwapArgsWire,
+    @SerialName("node_id") val nodeId: String? = null,
+    val metadata: Map<String, String>? = null,
+    @SerialName("webhook_url") val webhookUrl: String? = null
 )
 
 // ============================================

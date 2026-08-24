@@ -33,14 +33,13 @@ class OriginsClient constructor(
     /**
      * List all available origins
      *
+     * This is a public, unauthenticated endpoint — `metadata` on each
+     * [Origin] is always `{}` by design (see [Origin]).
+     *
      * @return List of available origins
      */
     fun list(): List<Origin> {
-        val response = httpClient.get<OriginListResponse>(
-            path = "/api/origins"
-        )
-
-        return response.result.origins
+        return httpClient.get<List<Origin>>(path = "/api/origins")
     }
 
     /**
@@ -67,7 +66,6 @@ class OriginsClient constructor(
                     profile.birthdate?.let { put("birthdate", it) }
                     profile.email?.let { put("email", it) }
                     profile.phone?.let { put("phone", it) }
-                    profile.nationality?.let { put("nationality", it) }
                     profile.countryOfResidence?.let { put("country_of_residence_code", it) }
                     profile.addressLine1?.let { put("address_line1", it) }
                     profile.addressLine2?.let { put("address_line2", it) }
@@ -77,8 +75,6 @@ class OriginsClient constructor(
                     profile.country?.let { put("country_of_birth_code", it) }
                     profile.documentType?.let { put("personal_id_type", it) }
                     profile.documentNumber?.let { put("personal_id_number", it) }
-                    profile.documentIssueDate?.let { put("document_issue_date", it) }
-                    profile.documentExpiryDate?.let { put("document_expiry_date", it) }
                     profile.gender?.let { put("gender", it) }
                 }
             }
@@ -105,17 +101,26 @@ class OriginsClient constructor(
                     put("tax_id", profile.taxId)
                     put("incorporation_date", profile.incorporationDate)
                     put("type", profile.businessType)
-                    put("incorporation_country_code", profile.incorporationCountryCode)
+                    put("country_code", profile.countryCode)
                     put("address_line1", profile.addressLine1)
                     profile.addressLine2?.let { put("address_line2", it) }
                     put("city", profile.city)
-                    profile.state?.let { put("state", it) }
+                    put("state", profile.state)
                     put("postal_code", profile.postalCode)
                     put("country", profile.country)
                     profile.website?.let { put("website", it) }
                     profile.email?.let { put("email", it) }
                     profile.phone?.let { put("phone", it) }
                     profile.industry?.let { put("industry", it) }
+                    profile.ownerName?.let { put("owner_name", it) }
+                    profile.ownerIdType?.let { put("owner_id_type", it) }
+                    profile.ownerIdNumber?.let { put("owner_id_number", it) }
+                    profile.ownerAddressLine1?.let { put("owner_address_line1", it) }
+                    profile.ownerAddressLine2?.let { put("owner_address_line2", it) }
+                    profile.ownerCity?.let { put("owner_city", it) }
+                    profile.ownerState?.let { put("owner_state", it) }
+                    profile.ownerPostalCode?.let { put("owner_postal_code", it) }
+                    profile.ownerCountryCode?.let { put("owner_country_code", it) }
                 }
             }
         }

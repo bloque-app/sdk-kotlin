@@ -17,7 +17,11 @@ import app.bloque.sdk.identity.UserProfile
  * - `session.compliance.tiers.getStatus()` — what's missing, what's already
  *   under review, and which hosted gate resolves the gap. Includes
  *   `nextRecomputeAt`, a polling-backoff hint.
- * - `session.compliance.tosGate.start()` — mint a Level 0 TOS acceptance link.
+ * - `session.compliance.tosGate.start()` — mint a Level 0 TOS acceptance link,
+ *   then `init()`/`challenge()`/`accept()` for a native client rendering its
+ *   own TOS screen: `developerName`/`passkeyRequired` branding/gating, and
+ *   accepting with either a pre-built device attestation or the raw
+ *   WebAuthn passkey parts (`TosGateAttestation`'s sealed choice).
  * - `session.compliance.verificationGate.start()` — mint a hosted
  *   document/form submission link (return_url is optional here), then
  *   `init()` to render its requirement cards: per-field help text
@@ -48,7 +52,6 @@ fun main() {
                 birthdate = "1990-01-01",
                 email = "ada@example.com",
                 phone = "+1234567890",
-                nationality = "USA",
                 countryOfResidence = "USA",
                 country = "USA"
             )
@@ -83,6 +86,48 @@ fun main() {
                 StartTosGateParams(returnUrl = "https://myapp.example.com/verification-complete")
             )
             println("Open this URL to accept the TOS: ${gate.url}")
+
+            // Usually you'd just open `gate.url` in a browser and let the
+            // hosted page drive init()/challenge()/accept() itself. Shown
+            // here for a native client that renders its own TOS screen
+            // instead of embedding the hosted page.
+            val tosInit = session.compliance.tosGate.init(TosGateInitParams(token = gate.token))
+            println("Developer name for branding: ${tosInit.developerName}")
+
+            // Accepting can optionally hand control of the identity's
+            // PassAccount to a device — either a pre-built device
+            // attestation, or the raw WebAuthn registration parts for the
+            // server to frame itself. `passkeyRequired` gates whether this
+            // step applies at all.
+            val attestation = if (tosInit.passkeyRequired) {
+                val challengeResult = session.compliance.tosGate.challenge(TosGateInitParams(token = gate.token))
+                challengeResult.passkey?.let { passkeyChallenge ->
+                    println("Passkey challenge context: ${passkeyChallenge.context}")
+                    // A real client would hand `passkeyChallenge` to the
+                    // platform's WebAuthn/authenticator API here and build
+                    // this from the resulting credential.
+                    TosGateAttestation.Passkey(
+                        TosGatePasskeyRegistration(
+                            credentialId = "base64url-credential-id",
+                            authenticatorData = "base64url-authenticator-data",
+                            clientData = "base64url-client-data",
+                            publicKey = "base64url-public-key",
+                            context = passkeyChallenge.context
+                        )
+                    )
+                }
+            } else {
+                null
+            }
+
+            val accepted = session.compliance.tosGate.accept(
+                TosGateAcceptParams(
+                    token = gate.token,
+                    csrfToken = tosInit.csrfToken,
+                    attestation = attestation
+                )
+            )
+            println("Accepted at: ${accepted.acceptance.acceptedAt}")
         }
         VerificationFlowType.DOCUMENT_SUBMISSION -> {
             // return_url is optional for the verification gate — omit it

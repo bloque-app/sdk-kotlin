@@ -251,6 +251,91 @@ class BrebClient constructor(
     }
 
     /**
+     * Get a BRE-B key account by URN.
+     */
+    fun get(urn: String): BrebKeyAccount {
+        @Serializable
+        data class GetAccountResponse(val account: AccountData<BrebDetails>)
+
+        val response = httpClient.get<GetAccountResponse>(
+            path = "/api/accounts/$urn"
+        )
+        return mapBrebAccount(response.account)
+    }
+
+    /**
+     * List BRE-B key accounts.
+     *
+     * @param params Optional filter parameters
+     * @return List of BRE-B key accounts
+     */
+    @JvmOverloads
+    fun list(params: ListBrebKeyParams = ListBrebKeyParams()): List<BrebKeyAccount> {
+        @Serializable
+        data class BrebListResponse(val accounts: List<AccountData<BrebDetails>>)
+
+        val holderUrn = params.holderUrn ?: httpClient.getUrn()
+
+        val queryParams = buildString {
+            append("?medium=breb")
+            holderUrn?.let { append("&holder_urn=$it") }
+            params.urn?.let { append("&urn=$it") }
+            params.status?.let { append("&status=$it") }
+        }
+
+        val response = httpClient.get<BrebListResponse>(
+            path = "/api/accounts$queryParams"
+        )
+
+        return response.accounts.map { account -> mapBrebAccount(account) }
+    }
+
+    /**
+     * Decode a BRE-B EMVCo QR string into structured payment data.
+     *
+     * **Passport only.** With the active provider (Cobre), this always fails
+     * (500 E_BREB_CUSTOMER_ID_NOT_CONFIGURED) — decoding depends on a
+     * `customer_id` that only exists in Passport's config shape.
+     */
+    fun decodeQr(params: DecodeBrebQrParams): BrebOperationResult<BrebDecodedQr> {
+        return try {
+            require(params.qrCodeData.trim().isNotEmpty()) { "qrCodeData is required" }
+
+            val response = httpClient.post<DecodeBrebQrResponseWire, DecodeBrebQrRequest>(
+                path = "/api/mediums/breb/decode-qr",
+                body = DecodeBrebQrRequest(qrCodeData = params.qrCodeData)
+            )
+
+            val result = response.result
+            BrebOperationResult(
+                data = BrebDecodedQr(
+                    amount = result.amount,
+                    additionalInfo = result.additionalInfo,
+                    inc = result.inc,
+                    key = result.key,
+                    qrCodeData = result.qrCodeData,
+                    status = result.status,
+                    acquirerNetworkIdentifier = result.acquirerNetworkIdentifier,
+                    merchant = result.merchant,
+                    channel = result.channel,
+                    vat = result.vat,
+                    qrCodeReference = result.qrCodeReference,
+                    type = result.type,
+                    resolutionId = result.resolutionId,
+                    resolution = result.resolution,
+                    raw = result.raw
+                ),
+                error = null
+            )
+        } catch (error: Exception) {
+            BrebOperationResult(
+                data = null,
+                error = mapError(error)
+            )
+        }
+    }
+
+    /**
      * Activate a previously suspended BRE-B key account.
      */
     fun activateKey(params: ActivateBrebKeyParams): BrebOperationResult<ActivateBrebKeyResult> {

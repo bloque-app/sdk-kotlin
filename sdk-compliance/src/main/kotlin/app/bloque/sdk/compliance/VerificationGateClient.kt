@@ -99,7 +99,8 @@ class VerificationGateClient constructor(
             pendingRequirements = (response.pendingRequirements ?: emptyList()).map(::mapPendingRequirement),
             csrfToken = response.csrfToken,
             returnUrl = response.returnUrl ?: "",
-            accentColor = response.accentColor
+            accentColor = response.accentColor,
+            developerName = response.developerName
         )
     }
 

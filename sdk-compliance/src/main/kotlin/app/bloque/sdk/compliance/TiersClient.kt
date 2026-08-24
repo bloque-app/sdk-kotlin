@@ -69,7 +69,39 @@ private fun mapRequirementStatus(wire: TierRequirementStatusWire): TierRequireme
         title = wire.title,
         fields = wire.fields?.map(::mapRequirementField),
         submittedAt = wire.submittedAt,
-        requiresUpload = wire.requiresUpload
+        requiresUpload = wire.requiresUpload,
+        graceUntil = wire.graceUntil
+    )
+}
+
+private fun mapRequirementUploadIntent(wire: RequirementUploadIntentResponseWire): RequirementUploadIntent {
+    return RequirementUploadIntent(
+        key = wire.key,
+        uploadUrl = wire.uploadUrl,
+        contentType = wire.contentType,
+        acl = wire.acl,
+        serverSideEncryption = wire.serverSideEncryption,
+        expiresInSeconds = wire.expiresInSeconds,
+        maxSizeBytes = wire.maxSizeBytes
+    )
+}
+
+private fun mapRequirementDocument(wire: RequirementDocumentResponseWire): RequirementDocument {
+    return RequirementDocument(
+        id = wire.id,
+        complianceId = wire.complianceId,
+        identityUrn = wire.identityUrn,
+        requirementKey = wire.requirementKey,
+        documentType = wire.documentType,
+        side = wire.side,
+        imageS3Key = wire.imageS3Key,
+        imageSizeBytes = wire.imageSizeBytes,
+        contentType = wire.contentType,
+        originalFilename = wire.originalFilename,
+        sha256 = wire.sha256,
+        uploadedBy = wire.uploadedBy,
+        createdAt = wire.createdAt,
+        downloadUrl = wire.downloadUrl
     )
 }
 
@@ -90,8 +122,13 @@ internal fun mapVerificationFlow(wire: VerificationFlowHandoffWire?): Verificati
 }
 
 /**
- * Tier status client — the read side of the compliance engine's
- * verification-tier control plane.
+ * Tier status client — the compliance engine's verification-tier control
+ * plane. [getStatus] is the read side; [createRequirementUploadIntent],
+ * [confirmRequirementUpload], and [listRequirementDocuments] are a
+ * self-servable evidence-upload path for `document`/`manual_review`
+ * requirements, authorized by the identity's own JWT and independent of the
+ * hosted verification gate (which mints its own upload intents via
+ * `verificationGate.init()` instead).
  */
 class TiersClient constructor(
     httpClient: BloqueHttpClient
@@ -128,5 +165,63 @@ class TiersClient constructor(
             verificationFlow = mapVerificationFlow(response.verificationFlow),
             nextRecomputeAt = response.nextRecomputeAt
         )
+    }
+
+    /**
+     * Mint a short-lived presigned upload URL for a `document`/`manual_review`
+     * requirement's evidence. Self-servable by the identity's own JWT —
+     * independent of the hosted verification gate. The S3 key is always
+     * server-derived; upload the file with an HTTP PUT to
+     * [RequirementUploadIntent.uploadUrl], then confirm with
+     * [confirmRequirementUpload].
+     *
+     * @param params URN, requirement key, and the file's content type
+     * @return a presigned PUT URL and its server-derived key
+     */
+    fun createRequirementUploadIntent(params: CreateRequirementUploadIntentParams): RequirementUploadIntent {
+        val response = httpClient.post<RequirementUploadIntentResponseWire, CreateRequirementUploadIntentRequestWire>(
+            path = "/api/compliance/${params.urn}/requirements/${params.requirementKey}/upload-intent",
+            body = CreateRequirementUploadIntentRequestWire(
+                contentType = params.contentType,
+                sizeBytes = params.sizeBytes
+            )
+        )
+        return mapRequirementUploadIntent(response)
+    }
+
+    /**
+     * Confirm a completed PUT upload from [createRequirementUploadIntent] and
+     * record it as evidence pending review. Does not by itself satisfy the
+     * requirement or recompute the tier — a reviewer decision still has to
+     * land.
+     *
+     * @param params URN, requirement key, the confirmed S3 key, and document metadata
+     * @return the recorded document
+     */
+    fun confirmRequirementUpload(params: ConfirmRequirementUploadParams): RequirementDocument {
+        val response = httpClient.post<RequirementDocumentResponseWire, ConfirmRequirementUploadRequestWire>(
+            path = "/api/compliance/${params.urn}/requirements/${params.requirementKey}/documents",
+            body = ConfirmRequirementUploadRequestWire(
+                s3Key = params.s3Key,
+                documentType = params.documentType,
+                side = params.side,
+                originalFilename = params.originalFilename
+            )
+        )
+        return mapRequirementDocument(response)
+    }
+
+    /**
+     * List every evidence document uploaded for a requirement, each with a
+     * short-lived presigned `downloadUrl` where available.
+     *
+     * @param params URN and requirement key
+     * @return the requirement's uploaded documents
+     */
+    fun listRequirementDocuments(params: ListRequirementDocumentsParams): List<RequirementDocument> {
+        val response = httpClient.get<List<RequirementDocumentResponseWire>>(
+            path = "/api/compliance/${params.urn}/requirements/${params.requirementKey}/documents"
+        )
+        return response.map(::mapRequirementDocument)
     }
 }

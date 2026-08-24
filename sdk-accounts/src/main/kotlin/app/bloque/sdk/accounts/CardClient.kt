@@ -263,13 +263,13 @@ class CardClient constructor(
     /**
      * Get account movements/transactions
      *
+     * Returns the same paginated shape as [AccountsClient.movements] —
+     * `data`, `page_size`, `has_more`, and `next`.
+     *
      * @param params Parameters with URN, asset, and optional filters
-     * @return List of movements/transactions
+     * @return Paginated movements with data, page_size, has_more, and next token
      */
-    fun movements(params: ListMovementsParams): List<Movement> {
-        @Serializable
-        data class MovementsResponse(val transactions: List<Movement>)
-
+    fun movements(params: ListMovementsParams): PagedMovements {
         val queryParams = buildString {
             val parts = mutableListOf<String>()
             parts.add("asset=${params.asset}")
@@ -278,15 +278,96 @@ class CardClient constructor(
             params.after?.let { parts.add("after=$it") }
             params.reference?.let { parts.add("reference=$it") }
             params.direction?.let { parts.add("direction=$it") }
+            params.collapsedView?.let { parts.add("collapsed_view=$it") }
+            params.pocket?.let { parts.add("pocket=$it") }
+            params.next?.let { parts.add("next=$it") }
             append("?")
             append(parts.joinToString("&"))
         }
 
-        val response = httpClient.get<MovementsResponse>(
+        return httpClient.get<PagedMovements>(
             path = "/api/accounts/${params.urn}/movements$queryParams"
         )
+    }
 
-        return response.transactions
+    /**
+     * Delete account
+     *
+     * @param urn Account URN
+     * @return Updated account (status "deleted")
+     */
+    fun delete(urn: String): CardAccount {
+        @Serializable
+        data class StatusRequest(@SerialName("status") val status: String)
+
+        val response = httpClient.patch<CreateAccountResponse<CardDetails>, StatusRequest>(
+            path = "/api/accounts/$urn",
+            body = StatusRequest("deleted")
+        )
+
+        return mapAccountResponse(response.result.account)
+    }
+
+    /**
+     * Tokenize this card for Apple Pay.
+     *
+     * @param params Card URN, Apple Pay certificates, nonce, and nonce signature
+     * @return Apple Pay tokenization payload (activation_data, encrypted_pass_data, ephemeral_public_key)
+     */
+    fun tokenizeApple(params: TokenizeAppleCardParams): AppleCardTokenization {
+        @Serializable
+        data class TokenizeAppleRequest(
+            val certificates: List<String>,
+            val nonce: String,
+            @SerialName("nonce_signature") val nonceSignature: String
+        )
+
+        @Serializable
+        data class TokenizeAppleResultWire(val tokenization: AppleCardTokenization)
+
+        @Serializable
+        data class TokenizeAppleResponseWire(val result: TokenizeAppleResultWire)
+
+        val response = httpClient.post<TokenizeAppleResponseWire, TokenizeAppleRequest>(
+            path = "/api/accounts/${params.urn}/tokenize/apple",
+            body = TokenizeAppleRequest(
+                certificates = params.certificates,
+                nonce = params.nonce,
+                nonceSignature = params.nonceSignature
+            )
+        )
+
+        return response.result.tokenization
+    }
+
+    /**
+     * Tokenize this card for Google Pay.
+     *
+     * @param params Card URN, device ID, and wallet account ID
+     * @return Google Pay tokenization payload (one-time passcode)
+     */
+    fun tokenizeGoogle(params: TokenizeGoogleCardParams): GoogleCardTokenization {
+        @Serializable
+        data class TokenizeGoogleRequest(
+            @SerialName("device_id") val deviceId: String,
+            @SerialName("wallet_account_id") val walletAccountId: String
+        )
+
+        @Serializable
+        data class TokenizeGoogleResultWire(val tokenization: GoogleCardTokenization)
+
+        @Serializable
+        data class TokenizeGoogleResponseWire(val result: TokenizeGoogleResultWire)
+
+        val response = httpClient.post<TokenizeGoogleResponseWire, TokenizeGoogleRequest>(
+            path = "/api/accounts/${params.urn}/tokenize/google",
+            body = TokenizeGoogleRequest(
+                deviceId = params.deviceId,
+                walletAccountId = params.walletAccountId
+            )
+        )
+
+        return response.result.tokenization
     }
 
     private fun mapAccountResponse(account: AccountData<CardDetails>): CardAccount {

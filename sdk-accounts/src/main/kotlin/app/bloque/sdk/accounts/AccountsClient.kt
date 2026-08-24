@@ -69,6 +69,21 @@ class AccountsClient constructor(
     val breb: BrebClient = BrebClient(httpClient)
 
     /**
+     * US account (Bridge-backed) operations
+     */
+    val usAccount: UsAccountClient = UsAccountClient(httpClient)
+
+    /**
+     * US2 account (fiat virtual account, KYC-gated) operations
+     */
+    val us2Account: Us2AccountClient = Us2AccountClient(httpClient)
+
+    /**
+     * External US bank (Brale/Plaid-linked) account operations
+     */
+    val externalUsBank: ExternalUsBankClient = ExternalUsBankClient(httpClient)
+
+    /**
      * Transfer funds between accounts
      *
      * @param params Transfer parameters (source, destination, amount, asset)
@@ -127,6 +142,39 @@ class AccountsClient constructor(
         )
 
         return response
+    }
+
+    /**
+     * Get aggregated transactions across all accounts owned by the authenticated user
+     *
+     * Unlike [movements], which is scoped to a single account, this aggregates
+     * across every account the caller owns (optionally narrowed to
+     * [ListAggregatedTransactionsParams.accountUrns]).
+     *
+     * @param params Parameters with asset and optional filters
+     * @return Paginated movements with data, page_size, has_more, and next token
+     */
+    fun transactions(params: ListAggregatedTransactionsParams): PagedMovements {
+        val queryParams = buildString {
+            val parts = mutableListOf<String>()
+            parts.add("asset=${params.asset}")
+            params.accountUrns?.takeIf { it.isNotEmpty() }?.let {
+                parts.add("account_urns=${it.joinToString(",")}")
+            }
+            params.limit?.let { parts.add("limit=$it") }
+            params.before?.let { parts.add("before=$it") }
+            params.after?.let { parts.add("after=$it") }
+            params.reference?.let { parts.add("reference=$it") }
+            params.direction?.let { parts.add("direction=$it") }
+            params.collapsedView?.let { parts.add("collapsed_view=$it") }
+            params.next?.let { parts.add("next=$it") }
+            append("?")
+            append(parts.joinToString("&"))
+        }
+
+        return httpClient.get<PagedMovements>(
+            path = "/api/accounts/transactions$queryParams"
+        )
     }
 
     /**
@@ -270,6 +318,7 @@ class AccountsClient constructor(
         )
 
         return BatchTransferResult(
+            status = response.result.status,
             chunks = response.result.chunks.map { chunk ->
                 BatchTransferChunkResult(
                     queueId = chunk.queueId,

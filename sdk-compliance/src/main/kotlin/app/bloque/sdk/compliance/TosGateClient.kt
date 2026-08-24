@@ -15,6 +15,38 @@ private fun mapAcceptance(wire: TosAcceptanceRecordWire): TosAcceptanceRecord {
     )
 }
 
+private fun mapPasskeyChallenge(wire: TosGatePasskeyChallengeWire?): TosGatePasskeyChallenge? {
+    if (wire == null) return null
+    return TosGatePasskeyChallenge(
+        challenge = wire.challenge,
+        context = wire.context,
+        expiresAtBlock = wire.expiresAtBlock,
+        userId = wire.userId,
+        userName = wire.userName,
+        publicAddress = wire.publicAddress
+    )
+}
+
+private fun toAcceptRequestWire(params: TosGateAcceptParams): TosGateAcceptRequestWire {
+    return when (val attestation = params.attestation) {
+        is TosGateAttestation.DeviceAttestation -> TosGateAcceptRequestWire(
+            csrfToken = params.csrfToken,
+            deviceAttestation = attestation.hex
+        )
+        is TosGateAttestation.Passkey -> TosGateAcceptRequestWire(
+            csrfToken = params.csrfToken,
+            passkey = TosGatePasskeyRegistrationWire(
+                credentialId = attestation.registration.credentialId,
+                authenticatorData = attestation.registration.authenticatorData,
+                clientData = attestation.registration.clientData,
+                publicKey = attestation.registration.publicKey,
+                context = attestation.registration.context
+            )
+        )
+        null -> TosGateAcceptRequestWire(csrfToken = params.csrfToken)
+    }
+}
+
 /**
  * Level 0 TOS gate (`/api/tos-gate` routes) — the hosted page a user opens to
  * accept the Terms of Service.
@@ -63,8 +95,28 @@ class TosGateClient constructor(
             csrfToken = response.csrfToken,
             returnUrl = response.returnUrl,
             showHome = response.showHome,
-            accentColor = response.accentColor
+            accentColor = response.accentColor,
+            developerName = response.developerName,
+            passkeyRequired = response.passkeyRequired
         )
+    }
+
+    /**
+     * Mint a WebAuthn registration challenge for the token's identity, for
+     * the passkey step [TosGateInitResult.passkeyRequired] gates. Called at
+     * the moment the user actually commits (not at page load) — the
+     * challenge is bound to a chain block with a limited answer window, so
+     * minting it early would spend that window on however long the user
+     * spends reading the document. Authorized solely by [params]'s token.
+     *
+     * @return the challenge, or `null` if this identity has no account ready for a device
+     */
+    fun challenge(params: TosGateInitParams): TosGateChallengeResult {
+        val response = httpClient.get<TosGateChallengeResponseWire>(
+            path = "/api/tos-gate/challenge",
+            headers = mapOf("Authorization" to "Bearer ${params.token}")
+        )
+        return TosGateChallengeResult(passkey = mapPasskeyChallenge(response.passkey))
     }
 
     /**
@@ -72,10 +124,7 @@ class TosGateClient constructor(
      * [params]'s token; requires the single-use `csrfToken` from [init].
      */
     fun accept(params: TosGateAcceptParams): TosGateAcceptResult {
-        val body = TosGateAcceptRequestWire(
-            csrfToken = params.csrfToken,
-            deviceAttestation = params.deviceAttestation
-        )
+        val body = toAcceptRequestWire(params)
         val response = httpClient.post<TosGateAcceptResponseWire, TosGateAcceptRequestWire>(
             path = "/api/tos-gate/accept",
             body = body,

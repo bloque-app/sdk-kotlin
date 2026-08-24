@@ -41,6 +41,14 @@ class PseClient internal constructor(
 
         val orderType = params.type ?: OrderType.SRC
 
+        // redirect_url is a hard API requirement for every PSE order (bank-redirect
+        // rail): it must be present under BOTH `args.redirect_url` (read by ModulePSE
+        // when the node auto-executes) and `metadata.redirect_url` (read by templates
+        // that source it from the persisted order metadata, e.g. link-pse-kusama).
+        // Missing either one gets the order rejected before the gateway is contacted.
+        val argsWire = mapArgsToWire(params.args, params.redirectUrl)
+        val mergedMetadata = (params.metadata ?: emptyMap()) + ("redirect_url" to params.redirectUrl)
+
         val input = CreateOrderInputWire(
             takerUrn = takerUrn,
             type = orderType.value,
@@ -50,9 +58,9 @@ class PseClient internal constructor(
             depositInformation = DepositInformationWire(urn = params.depositInformation.urn),
             amountSrc = if (orderType == OrderType.SRC) params.amountSrc else null,
             amountDst = if (orderType == OrderType.DST) params.amountDst else null,
-            args = params.args?.let { mapArgsToWire(it) },
+            args = argsWire,
             nodeId = params.nodeId,
-            metadata = params.metadata,
+            metadata = mergedMetadata,
             webhookUrl = params.webhookUrl
         )
 
@@ -78,16 +86,17 @@ class PseClient internal constructor(
         )
     }
 
-    private fun mapArgsToWire(args: PseOrderArgs): PseOrderArgsWire {
+    private fun mapArgsToWire(args: PseOrderArgs?, redirectUrl: String): PseOrderArgsWire {
         return PseOrderArgsWire(
-            bankCode = args.bankCode,
-            userType = args.userType,
-            customerEmail = args.customerEmail,
-            userLegalIdType = args.userLegalIdType,
-            userLegalId = args.userLegalId,
-            customerData = args.customerData?.let {
+            bankCode = args?.bankCode,
+            userType = args?.userType,
+            customerEmail = args?.customerEmail,
+            userLegalIdType = args?.userLegalIdType,
+            userLegalId = args?.userLegalId,
+            customerData = args?.customerData?.let {
                 CustomerDataWire(fullName = it.fullName, phoneNumber = it.phoneNumber)
-            }
+            },
+            redirectUrl = redirectUrl
         )
     }
 

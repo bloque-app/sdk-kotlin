@@ -4,7 +4,9 @@ import app.bloque.sdk.BloqueSDK
 import app.bloque.sdk.accounts.ActivateBrebKeyParams
 import app.bloque.sdk.accounts.BrebKeyType
 import app.bloque.sdk.accounts.CreateBrebKeyParams
+import app.bloque.sdk.accounts.DecodeBrebQrParams
 import app.bloque.sdk.accounts.DeleteBrebKeyParams
+import app.bloque.sdk.accounts.ListBrebKeyParams
 import app.bloque.sdk.accounts.ResolveBrebKeyParams
 import app.bloque.sdk.accounts.SuspendBrebKeyParams
 import app.bloque.sdk.core.Mode
@@ -71,7 +73,16 @@ fun main() {
     println("Receptor node: ${resolved.data?.receptorNode}")
 
     created.data?.let { account ->
-        println("\n=== Example 3: Suspend BRE-B Key ===")
+        println("\n=== Example 3: Get + List BRE-B Key Accounts ===")
+
+        val fetched = session.accounts.breb.get(account.urn)
+        println("Fetched key type: ${fetched.keyType}")  // ID, PHONE, MOBILE, EMAIL, ALPHA, or BCODE
+        println("Fetched status: ${fetched.status}")
+
+        val allKeys = session.accounts.breb.list(ListBrebKeyParams(status = "active"))
+        println("Active BRE-B keys: ${allKeys.size}")
+
+        println("\n=== Example 4: Suspend BRE-B Key ===")
 
         val suspended = session.accounts.breb.suspendKey(
             SuspendBrebKeyParams(accountUrn = account.urn)
@@ -81,7 +92,7 @@ fun main() {
         println("Suspend status: ${suspended.data?.status}")
         println("Upstream key status: ${suspended.data?.keyStatus}")
 
-        println("\n=== Example 4: Activate BRE-B Key ===")
+        println("\n=== Example 5: Activate BRE-B Key ===")
 
         val activated = session.accounts.breb.activateKey(
             ActivateBrebKeyParams(accountUrn = account.urn)
@@ -91,7 +102,16 @@ fun main() {
         println("Activate status: ${activated.data?.status}")
         println("Upstream key status: ${activated.data?.keyStatus}")
 
-        println("\n=== Example 5: Delete BRE-B Key ===")
+        println("\n=== Example 6: Decode BRE-B QR ===")
+
+        val decodedQr = session.accounts.breb.decodeQr(
+            DecodeBrebQrParams(qrCodeData = "00020101021226330015CO.COM.VISI...")
+        )
+        println("Decode error: ${decodedQr.error?.message}")
+        println("QR type: ${decodedQr.data?.type}")
+        println("QR status: ${decodedQr.data?.status}")
+
+        println("\n=== Example 7: Delete BRE-B Key ===")
 
         val deleted = session.accounts.breb.deleteKey(
             DeleteBrebKeyParams(accountUrn = account.urn)
