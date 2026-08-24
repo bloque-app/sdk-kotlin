@@ -28,9 +28,19 @@ class SwapClient constructor(
     val colbank: ColBankClient = ColBankClient(httpClient)
 
     /**
-     * BRE-B instant payout client.
+     * BRE-B instant payout/deposit client.
      */
     val breb: BrebClient = BrebClient(httpClient)
+
+    /**
+     * US-bank ACH-pull client (external-us-bank -> kusama).
+     */
+    val usBank: UsBankSwapClient = UsBankSwapClient(httpClient)
+
+    /**
+     * Recurring-card subscription client.
+     */
+    val card: CardClient = CardClient(httpClient)
 
     /**
      * List orders for the current user (as taker)
@@ -196,6 +206,32 @@ class SwapClient constructor(
         )
     }
 
+    /**
+     * Cancel a recurring-card subscription.
+     *
+     * Sets a `cancellation_requested` flag on the swap's instruction graph.
+     * Future occurrences short-circuit to a cancelled completion; an
+     * occurrence already in flight (charge → settle → payout) is NOT
+     * interrupted and runs to completion. Idempotent: calling twice returns
+     * [CancelSubscriptionStatus.ALREADY_CANCELLED] instead of erroring.
+     *
+     * @param orderId Order signature (order_sig) of the subscription to cancel
+     * @return CancelSubscriptionResult with the resulting status and cursor
+     */
+    fun cancelSubscription(orderId: String): CancelSubscriptionResult {
+        val response = httpClient.post<CancelSubscriptionResponseWire, Map<String, String>>(
+            path = "/api/order/$orderId/cancel-subscription",
+            body = emptyMap()
+        )
+
+        return CancelSubscriptionResult(
+            status = CancelSubscriptionStatus.fromString(response.result.status),
+            cursor = response.result.cursor,
+            orderId = response.result.orderId,
+            graphId = response.result.graphId
+        )
+    }
+
     private fun mapFeeComponentResponse(wire: FeeComponentWire): FeeComponent {
         return FeeComponent(
             at = wire.at,
@@ -204,7 +240,8 @@ class SwapClient constructor(
             value = wire.value,
             percentage = wire.percentage,
             pair = wire.pair,
-            amount = wire.amount
+            amount = wire.amount,
+            serviceName = wire.serviceName
         )
     }
 }

@@ -244,12 +244,32 @@ class PolygonClient constructor(
         return mapAccountResponse(response.result.account)
     }
 
+    /**
+     * Delete account
+     *
+     * @param urn Account URN
+     * @return Updated account (status "deleted")
+     */
+    fun delete(urn: String): PolygonAccount {
+        @Serializable
+        data class StatusRequest(@SerialName("status") val status: String)
+
+        val response = httpClient.patch<CreateAccountResponse<PolygonDetails>, StatusRequest>(
+            path = "/api/accounts/$urn",
+            body = StatusRequest("deleted")
+        )
+
+        return mapAccountResponse(response.result.account)
+    }
+
     private fun mapAccountResponse(account: AccountData<PolygonDetails>): PolygonAccount {
         return PolygonAccount(
             urn = account.urn,
             id = account.id,
             address = account.details.address,
             network = account.details.network,
+            fundingTx = account.details.fundingTx,
+            openDeposits = account.details.openDeposits,
             status = account.status,
             ownerUrn = account.ownerUrn,
             ledgerId = account.ledgerAccountId,

@@ -226,5 +226,13 @@ fun main() {
     val disabledAccount = session.accounts.bancolombia.disable(simpleAccount.urn)
     println("After disable - Status: ${disabledAccount.status}")  // "disabled"
 
+    // ============================================
+    // Example 13: Delete account
+    // ============================================
+    println("\n=== Example 13: Delete Account ===")
+
+    val deletedAccount = session.accounts.bancolombia.delete(namedAccount.urn)
+    println("After delete - Status: ${deletedAccount.status}")  // "deleted"
+
     println("\n=== All Examples Completed ===")
 }

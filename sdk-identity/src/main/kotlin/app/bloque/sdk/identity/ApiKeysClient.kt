@@ -2,6 +2,7 @@ package app.bloque.sdk.identity
 
 import app.bloque.sdk.core.BaseClient
 import app.bloque.sdk.core.BloqueHttpClient
+import app.bloque.sdk.core.BloqueNotFoundError
 
 /**
  * Client for API key management operations. All of these endpoints
@@ -13,17 +14,46 @@ class ApiKeysClient constructor(
 ) : BaseClient(httpClient) {
 
     fun list(): List<ApiKeyInfo> {
-        val response = httpClient.get<ApiKeyListResponseWire>(path = "/api/api-keys")
-        return response.result
+        return httpClient.get<List<ApiKeyInfo>>(path = "/api/api-keys")
     }
 
+    /**
+     * Get a single API key by ID.
+     *
+     * The API returns HTTP 200 with `{statusCode: 404, ...}` instead of a
+     * real 404 status when the key doesn't exist
+     * (`api-key.controller.ts:305`) — this method detects that shape and
+     * throws [BloqueNotFoundError] itself so callers get a real exception.
+     */
     fun get(id: String): ApiKeyInfo {
-        val response = httpClient.get<ApiKeyResponseWire>(path = "/api/api-keys/$id")
-        return response.result
+        val response = httpClient.get<ApiKeyOrErrorWire>(path = "/api/api-keys/$id")
+
+        if (response.keyId == null) {
+            val message = response.message ?: "API key not found"
+            throw BloqueNotFoundError(
+                statusCode = response.statusCode ?: 404,
+                errorBody = """{"statusCode":${response.statusCode ?: 404},"message":"$message"}""",
+                message = message
+            )
+        }
+
+        return ApiKeyInfo(
+            id = requireNotNull(response.id),
+            keyId = response.keyId,
+            publishableKey = requireNotNull(response.publishableKey),
+            name = requireNotNull(response.name),
+            scopes = response.scopes ?: emptyList(),
+            domains = response.domains ?: emptyList(),
+            status = requireNotNull(response.status),
+            expiration = requireNotNull(response.expiration),
+            metadata = response.metadata ?: emptyMap(),
+            lastUsedAt = response.lastUsedAt,
+            createdAt = requireNotNull(response.createdAt)
+        )
     }
 
     fun create(params: CreateApiKeyParams): CreateApiKeyResult {
-        val response = httpClient.post<CreateApiKeyResponseWire, CreateApiKeyRequestWire>(
+        return httpClient.post<CreateApiKeyResult, CreateApiKeyRequestWire>(
             path = "/api/api-keys",
             body = CreateApiKeyRequestWire(
                 name = params.name,
@@ -33,18 +63,16 @@ class ApiKeysClient constructor(
                 metadata = params.metadata
             )
         )
-        return response.result
     }
 
     fun exchange(params: ExchangeApiKeyParams): ExchangeApiKeyResult {
-        val response = httpClient.post<ExchangeApiKeyResponseWire, ExchangeApiKeyRequestWire>(
+        return httpClient.post<ExchangeApiKeyResult, ExchangeApiKeyRequestWire>(
             path = "/api/api-keys/exchange",
             body = ExchangeApiKeyRequestWire(
                 key = params.key,
                 scopes = params.scopes
             )
         )
-        return response.result
     }
 
     fun revoke(id: String) {
@@ -52,10 +80,9 @@ class ApiKeysClient constructor(
     }
 
     fun rotate(id: String): RotateApiKeyResult {
-        val response = httpClient.post<RotateApiKeyResponseWire, Map<String, String>>(
+        return httpClient.post<RotateApiKeyResult, Map<String, String>>(
             path = "/api/api-keys/$id/rotate",
             body = emptyMap()
         )
-        return response.result
     }
 }

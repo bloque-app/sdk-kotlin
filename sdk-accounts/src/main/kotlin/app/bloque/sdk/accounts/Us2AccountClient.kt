@@ -12,9 +12,12 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /**
- * Client for Bancolombia account operations
+ * Client for `us2-account` operations — a fiat virtual account medium that is
+ * KYC-gated, provisions a dynamic EVM deposit wallet, and settles deposits
+ * via swap. Unlike [UsAccountClient] (Bridge), the holder's profile fields
+ * (name, address, tax id, ...) are supplied directly at creation time.
  */
-class BancolombiaClient constructor(
+class Us2AccountClient constructor(
     httpClient: BloqueHttpClient
 ) : BaseClient(httpClient) {
 
@@ -43,52 +46,60 @@ class BancolombiaClient constructor(
             }
         }
     }
+
     /**
-     * Create a new Bancolombia account
+     * Create a new us2-account.
      *
-     * @param params Optional parameters for account creation
+     * @param params Holder profile fields and optional account-creation parameters
      * @param options Optional settings to wait for account activation
-     * @return The created BancolombiaAccount
-     *
-     * Example usage:
-     * ```kotlin
-     * // Create without waiting
-     * val account = session.accounts.bancolombia.create(
-     *     CreateBancolombiaAccountParams(name = "My Account")
-     * )
-     *
-     * // Create and wait for active status with ledger
-     * val account = session.accounts.bancolombia.create(
-     *     CreateBancolombiaAccountParams(name = "My Account"),
-     *     CreateAccountOptions(waitLedger = true)
-     * )
-     * ```
+     * @return The created Us2Account
      */
     @JvmOverloads
     fun create(
-        params: CreateBancolombiaAccountParams = CreateBancolombiaAccountParams(),
+        params: CreateUs2AccountParams,
         options: CreateAccountOptions? = null
-    ): BancolombiaAccount {
+    ): Us2Account {
         val request = CreateAccountRequest(
             holderUrn = params.holderUrn ?: httpClient.getUrn() ?: "",
             webhookUrl = params.webhookUrl,
             ledgerAccountId = params.ledgerId,
-            input = JsonObject(emptyMap()),  // API requires empty object, not null
+            input = buildJsonObject {
+                put("type", params.type)
+                put("email", params.email)
+                params.name?.let { put("name", it) }
+                params.firstName?.let { put("first_name", it) }
+                params.lastName?.let { put("last_name", it) }
+                params.middleName?.let { put("middle_name", it) }
+                params.companyName?.let { put("company_name", it) }
+                params.incorporationDate?.let { put("incorporation_date", it) }
+                params.ein?.let { put("ein", it) }
+                params.phone?.let { put("phone", it) }
+                params.address?.let { address ->
+                    put("address", buildJsonObject {
+                        put("street", address.street)
+                        put("city", address.city)
+                        put("state", address.state)
+                        put("postal_code", address.postalCode)
+                        put("country", address.country)
+                    })
+                }
+                params.taxId?.let { put("tax_id", it) }
+                params.proofOfAddress?.let { put("proof_of_address", it) }
+                params.businessFormationDocument?.let { put("business_formation_document", it) }
+            },
             metadata = buildJsonObject {
                 put("source", "sdk-kotlin")
-                params.name?.let { put("name", it) }
-                params.metadata?.let { meta ->
-                    if (meta is JsonObject) {
-                        meta.entries.forEach { put(it.key, it.value) }
-                    }
+                val metaJson = mapToJsonElement(params.metadata)
+                if (metaJson is JsonObject) {
+                    metaJson.entries.forEach { put(it.key, it.value) }
                 }
             }
         )
 
         val headers = params.idempotencyKey?.let { mapOf("Idempotency-Key" to it) }
 
-        val response = httpClient.post<CreateAccountResponse<BancolombiaDetails>, CreateAccountRequest>(
-            path = "/api/mediums/bancolombia",
+        val response = httpClient.post<CreateAccountResponse<Us2AccountDetails>, CreateAccountRequest>(
+            path = "/api/mediums/us2-account",
             body = request,
             headers = headers
         )
@@ -103,26 +114,26 @@ class BancolombiaClient constructor(
     }
 
     /**
-     * List bancolombia accounts
+     * List us2-accounts.
      *
      * @param params Optional filter parameters
-     * @return List of bancolombia accounts
+     * @return List of us2-accounts
      */
     @JvmOverloads
-    fun list(params: ListBancolombiaParams = ListBancolombiaParams()): List<BancolombiaAccount> {
+    fun list(params: ListUs2AccountParams = ListUs2AccountParams()): List<Us2Account> {
         @Serializable
-        data class BancolombiaListResponse(val accounts: List<AccountData<BancolombiaDetails>>)
+        data class Us2AccountListResponse(val accounts: List<AccountData<Us2AccountDetails>>)
 
         val holderUrn = params.holderUrn ?: httpClient.getUrn()
 
         val queryParams = buildString {
-            append("?medium=bancolombia")
+            append("?medium=us2-account")
             holderUrn?.let { append("&holder_urn=$it") }
             params.urn?.let { append("&urn=$it") }
             params.status?.let { append("&status=$it") }
         }
 
-        val response = httpClient.get<BancolombiaListResponse>(
+        val response = httpClient.get<Us2AccountListResponse>(
             path = "/api/accounts$queryParams"
         )
 
@@ -130,14 +141,14 @@ class BancolombiaClient constructor(
     }
 
     /**
-     * Get a bancolombia account by URN
+     * Get a us2-account by URN.
      *
      * @param urn Account URN
-     * @return The bancolombia account
+     * @return The us2-account
      */
-    fun get(urn: String): BancolombiaAccount {
+    fun get(urn: String): Us2Account {
         @Serializable
-        data class GetAccountResponse(val account: AccountData<BancolombiaDetails>)
+        data class GetAccountResponse(val account: AccountData<Us2AccountDetails>)
 
         val response = httpClient.get<GetAccountResponse>(
             path = "/api/accounts/$urn"
@@ -148,7 +159,7 @@ class BancolombiaClient constructor(
     /**
      * Private method to poll account status until it becomes active
      */
-    private fun waitForActiveStatus(urn: String, timeout: Long): BancolombiaAccount {
+    private fun waitForActiveStatus(urn: String, timeout: Long): Us2Account {
         val startTime = System.currentTimeMillis()
         val pollingInterval = 2000L // 2 seconds
 
@@ -177,11 +188,11 @@ class BancolombiaClient constructor(
      * @param params Parameters with URN and new metadata
      * @return Updated account
      */
-    fun updateMetadata(params: UpdateBancolombiaMetadataParams): BancolombiaAccount {
+    fun updateMetadata(params: UpdateUs2AccountMetadataParams): Us2Account {
         @Serializable
         data class UpdateMetadataRequest(val metadata: JsonElement)
 
-        val response = httpClient.patch<CreateAccountResponse<BancolombiaDetails>, UpdateMetadataRequest>(
+        val response = httpClient.patch<CreateAccountResponse<Us2AccountDetails>, UpdateMetadataRequest>(
             path = "/api/accounts/${params.urn}",
             body = UpdateMetadataRequest(mapToJsonElement(params.metadata))
         )
@@ -190,27 +201,13 @@ class BancolombiaClient constructor(
     }
 
     /**
-     * Update account name
-     *
-     * @param urn Account URN
-     * @param name New name
-     * @return Updated account
-     */
-    fun updateName(urn: String, name: String): BancolombiaAccount {
-        return updateMetadata(UpdateBancolombiaMetadataParams(urn, mapOf("name" to name)))
-    }
-
-    /**
      * Activate account
-     *
-     * @param urn Account URN
-     * @return Updated account
      */
-    fun activate(urn: String): BancolombiaAccount {
+    fun activate(urn: String): Us2Account {
         @Serializable
         data class StatusRequest(@SerialName("status") val status: String)
 
-        val response = httpClient.patch<CreateAccountResponse<BancolombiaDetails>, StatusRequest>(
+        val response = httpClient.patch<CreateAccountResponse<Us2AccountDetails>, StatusRequest>(
             path = "/api/accounts/$urn",
             body = StatusRequest("active")
         )
@@ -220,15 +217,12 @@ class BancolombiaClient constructor(
 
     /**
      * Freeze account
-     *
-     * @param urn Account URN
-     * @return Updated account
      */
-    fun freeze(urn: String): BancolombiaAccount {
+    fun freeze(urn: String): Us2Account {
         @Serializable
         data class StatusRequest(@SerialName("status") val status: String)
 
-        val response = httpClient.patch<CreateAccountResponse<BancolombiaDetails>, StatusRequest>(
+        val response = httpClient.patch<CreateAccountResponse<Us2AccountDetails>, StatusRequest>(
             path = "/api/accounts/$urn",
             body = StatusRequest("frozen")
         )
@@ -238,15 +232,12 @@ class BancolombiaClient constructor(
 
     /**
      * Disable account
-     *
-     * @param urn Account URN
-     * @return Updated account
      */
-    fun disable(urn: String): BancolombiaAccount {
+    fun disable(urn: String): Us2Account {
         @Serializable
         data class StatusRequest(@SerialName("status") val status: String)
 
-        val response = httpClient.patch<CreateAccountResponse<BancolombiaDetails>, StatusRequest>(
+        val response = httpClient.patch<CreateAccountResponse<Us2AccountDetails>, StatusRequest>(
             path = "/api/accounts/$urn",
             body = StatusRequest("disabled")
         )
@@ -256,15 +247,12 @@ class BancolombiaClient constructor(
 
     /**
      * Delete account
-     *
-     * @param urn Account URN
-     * @return Updated account (status "deleted")
      */
-    fun delete(urn: String): BancolombiaAccount {
+    fun delete(urn: String): Us2Account {
         @Serializable
         data class StatusRequest(@SerialName("status") val status: String)
 
-        val response = httpClient.patch<CreateAccountResponse<BancolombiaDetails>, StatusRequest>(
+        val response = httpClient.patch<CreateAccountResponse<Us2AccountDetails>, StatusRequest>(
             path = "/api/accounts/$urn",
             body = StatusRequest("deleted")
         )
@@ -272,19 +260,15 @@ class BancolombiaClient constructor(
         return mapAccountResponse(response.result.account)
     }
 
-    private fun mapAccountResponse(account: AccountData<BancolombiaDetails>): BancolombiaAccount {
-        return BancolombiaAccount(
+    private fun mapAccountResponse(account: AccountData<Us2AccountDetails>): Us2Account {
+        return Us2Account(
             urn = account.urn,
             id = account.id,
-            referenceCode = account.details.referenceCode,
-            detailsId = account.details.id,
-            paymentAgreementCode = account.details.paymentAgreementCode,
-            bankAccountNumber = account.details.bankAccountNumber,
-            bankAccountType = account.details.bankAccountType,
-            bankAccountHolderName = account.details.bankAccountHolderName,
-            bankAccountHolderIdType = account.details.bankAccountHolderIdType,
-            bankAccountHolderIdValue = account.details.bankAccountHolderIdValue,
-            network = account.details.network,
+            userId = account.details.userId,
+            virtualAccountId = account.details.virtualAccountId,
+            type = account.details.type,
+            currency = account.details.currency,
+            sourceDepositInstructions = account.details.sourceDepositInstructions,
             status = account.status,
             ownerUrn = account.ownerUrn,
             ledgerId = account.ledgerAccountId,

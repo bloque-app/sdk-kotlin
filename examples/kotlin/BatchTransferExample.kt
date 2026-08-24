@@ -48,6 +48,7 @@ fun main() {
             .build()
     )
 
+    println("Batch Status: ${simpleBatch.status}")  // "executed" | "deferred" | "failed"
     println("Total Operations: ${simpleBatch.totalOperations}")
     println("Total Chunks: ${simpleBatch.totalChunks}")
     simpleBatch.chunks.forEach { chunk ->
@@ -226,6 +227,7 @@ fun main() {
     val largeBatch = session.accounts.batchTransfer(builder.build())
 
     println("Large Batch Submitted!")
+    println("Batch Status: ${largeBatch.status}")
     println("Total Operations: ${largeBatch.totalOperations}")
     println("Total Chunks: ${largeBatch.totalChunks}")
     println("Chunk Details:")

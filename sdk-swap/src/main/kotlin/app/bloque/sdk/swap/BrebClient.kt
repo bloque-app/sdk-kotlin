@@ -59,6 +59,49 @@ class BrebClient internal constructor(
         )
     }
 
+    /**
+     * Create a BRE-B deposit order (BRE-B COP -> Kusama, cash-in).
+     *
+     * Registers a temporary BRE-B deposit key against [CreateBrebDepositOrderParams.depositInformation]'s
+     * ledger account and pauses until an inbound BRE-B payment settles against it.
+     * Unlike [create] (the payout direction), this order type takes no
+     * medium-specific `args` — the module derives everything it needs from the
+     * order and deposit information, so this method uses the SDK's normal
+     * retry behavior rather than disabling it.
+     */
+    fun createDeposit(params: CreateBrebDepositOrderParams): CreateBrebDepositOrderResult {
+        val takerUrn = httpClient.getUrn()
+            ?: throw BloqueConfigError("User URN is not available. Please connect to a session first.")
+        val orderType = params.type ?: OrderType.SRC
+
+        val input = CreateBrebDepositOrderInputWire(
+            takerUrn = takerUrn,
+            type = orderType.value,
+            rateSig = params.rateSig,
+            depositInformation = DepositInformationWire(urn = params.depositInformation.urn),
+            amountSrc = if (orderType == OrderType.SRC) params.amountSrc else null,
+            amountDst = if (orderType == OrderType.DST) params.amountDst else null,
+            nodeId = params.nodeId,
+            metadata = params.metadata,
+            webhookUrl = params.webhookUrl
+        )
+
+        val headers = params.idempotencyKey?.let {
+            mapOf("Idempotency-Key" to it)
+        }
+        val response = httpClient.put<CreateOrderResponseWire, CreateBrebDepositOrderInputWire>(
+            path = "/api/order",
+            body = input,
+            headers = headers
+        )
+
+        return CreateBrebDepositOrderResult(
+            order = mapOrderResponse(response.result.order),
+            execution = response.result.execution?.let { mapExecutionResult(it) },
+            requestId = response.reqId
+        )
+    }
+
     private fun mapOrderResponse(wire: OrderWire): SwapOrder {
         return SwapOrder(
             id = wire.id,

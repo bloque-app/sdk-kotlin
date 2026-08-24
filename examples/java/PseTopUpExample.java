@@ -89,6 +89,7 @@ public class PseTopUpExample {
             new DepositInformation(            // depositInformation
                 "did:bloque:account:card:usr-xxx:crd-xxx"
             ),
+            "https://myapp.com/pse-callback",  // redirectUrl (required: PSE is a bank-redirect rail)
             "1000000",                         // amountSrc
             null,                              // amountDst
             null,                              // type (defaults to SRC)

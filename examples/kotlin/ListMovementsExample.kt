@@ -3,6 +3,7 @@ package examples.kotlin
 import app.bloque.sdk.BloqueSDK
 import app.bloque.sdk.core.Mode
 import app.bloque.sdk.UserSession
+import app.bloque.sdk.accounts.ListAggregatedTransactionsParams
 import app.bloque.sdk.accounts.ListMovementsParams
 
 fun main() {
@@ -102,5 +103,22 @@ fun main() {
 
     collapsed.data.forEach { m ->
         println("  ${m.status} | ${m.direction} | ${m.amount} ${m.asset} | ref=${m.reference}")
+    }
+
+    // ============================================
+    // Example 5: Aggregated transactions across all accounts
+    // ============================================
+    println("\n=== Aggregated transactions (all owned accounts) ===")
+
+    val aggregated = session.accounts.transactions(
+        ListAggregatedTransactionsParams(
+            asset = "KSM/12",
+            limit = 20
+        )
+    )
+
+    println("Aggregated page size: ${aggregated.pageSize}")
+    aggregated.data.forEach { m ->
+        println("  ${m.status} | ${m.direction} | ${m.amount} ${m.asset} | from=${m.fromAccountId}")
     }
 }

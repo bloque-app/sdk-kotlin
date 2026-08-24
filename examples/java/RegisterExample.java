@@ -35,7 +35,7 @@ public class RegisterExample {
             "1990-01-01",             // birthdate
             "john.doe@example.com",   // email
             "+1234567890",            // phone
-            "USA",                    // nationality
+            "M",                      // gender
             "USA",                    // countryOfResidence
             "123 Main Street",        // addressLine1
             "Apt 4B",                 // addressLine2
@@ -44,9 +44,7 @@ public class RegisterExample {
             "10001",                  // postalCode
             "USA",                    // country
             "SSN",                    // documentType
-            "123-45-6789",            // documentNumber
-            null,                     // documentIssueDate
-            null                      // documentExpiryDate
+            "123-45-6789"             // documentNumber
         );
 
         UserSession session = bloque.register(

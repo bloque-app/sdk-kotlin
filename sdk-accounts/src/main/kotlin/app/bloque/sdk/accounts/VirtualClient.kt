@@ -244,6 +244,24 @@ class VirtualClient constructor(
         return mapAccountResponse(response.result.account)
     }
 
+    /**
+     * Delete account
+     *
+     * @param urn Account URN
+     * @return Updated account (status "deleted")
+     */
+    fun delete(urn: String): VirtualAccount {
+        @Serializable
+        data class StatusRequest(@SerialName("status") val status: String)
+
+        val response = httpClient.patch<CreateAccountResponse<VirtualDetails>, StatusRequest>(
+            path = "/api/accounts/$urn",
+            body = StatusRequest("deleted")
+        )
+
+        return mapAccountResponse(response.result.account)
+    }
+
     private fun mapAccountResponse(account: AccountData<VirtualDetails>): VirtualAccount {
         return VirtualAccount(
             urn = account.urn,

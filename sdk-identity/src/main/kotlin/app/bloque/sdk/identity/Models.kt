@@ -2,6 +2,8 @@ package app.bloque.sdk.identity
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 
 // ============================================
 // Challenge Types
@@ -29,6 +31,21 @@ enum class ChallengeType {
     @SerialName("REDIRECT")
     REDIRECT
 }
+
+/**
+ * A challenge returned by [OriginClient.attest] (registration) or
+ * [OriginClient.assert] (authentication) — decoded straight off the wire,
+ * with no envelope. [value] and [params] are free-form and shaped
+ * differently per [type] (e.g. `{challenge, timestamp}` for a
+ * `SIGNING_CHALLENGE`, an OTP delivery confirmation for `OTP`), so they are
+ * kept as raw [JsonElement]/[JsonObject] rather than a fixed schema.
+ */
+@Serializable
+data class Challenge(
+    val type: ChallengeType,
+    val value: JsonElement,
+    val params: JsonObject? = null
+)
 
 // ============================================
 // Assertion Types
@@ -63,6 +80,76 @@ data class ApiKeyValue constructor(
     val alias: String
 )
 
+/**
+ * Deprecated, incorrect shape for the origin `assert`/`attest` response —
+ * it invented a `challenge_type` wire key (the real key is `type`) and
+ * assumed `value` was always a flat `Map<String, String>`, which does not
+ * hold for challenges like `SIGNING_CHALLENGE` (`{challenge, timestamp}`,
+ * with a numeric timestamp). Replaced by [Challenge], which decodes the
+ * real wire shape.
+ */
+@Deprecated(
+    "Replaced by Challenge, which matches the real /assert and /attest wire shape",
+    ReplaceWith("Challenge")
+)
+data class AssertionResult constructor(
+    val challengeType: ChallengeType,
+    val value: Map<String, String>
+)
+
+// ============================================
+// Connect Types
+// ============================================
+
+/**
+ * Parameters to resolve an assertion challenge (from [OriginClient.assert])
+ * and finish connecting to an existing identity via [OriginClient.connect].
+ * Covers any challenge type — an OTP code, a signature, an API key, etc. —
+ * not just the legacy API_KEY flow that [app.bloque.sdk.BloqueSDK.connect]
+ * handles directly.
+ */
+data class ConnectParams @JvmOverloads constructor(
+    val challengeType: ChallengeType,
+    val value: Map<String, String>,
+    val alias: String? = null,
+    val originalChallengeParams: Map<String, String>? = null,
+    val metadata: Map<String, String?>? = null
+)
+
+/**
+ * Result of [OriginClient.connect] — an access token for the now-connected
+ * identity.
+ */
+data class ConnectResult constructor(
+    val accessToken: String,
+    val reqId: String? = null
+)
+
+@Serializable
+internal data class GenericAssertionResultWire(
+    val alias: String? = null,
+    val challengeType: String,
+    val value: Map<String, String>,
+    val originalChallengeParams: Map<String, String>? = null
+)
+
+@Serializable
+internal data class ConnectRequestWire(
+    @SerialName("assertion_result") val assertionResult: GenericAssertionResultWire,
+    @SerialName("extra_context") val extraContext: Map<String, String?> = emptyMap()
+)
+
+@Serializable
+internal data class ConnectResultWire(
+    @SerialName("access_token") val accessToken: String
+)
+
+@Serializable
+internal data class ConnectResponseWire(
+    val result: ConnectResultWire,
+    @SerialName("req_id") val reqId: String? = null
+)
+
 // ============================================
 // Profile Types
 // ============================================
@@ -84,7 +171,6 @@ data class UserProfile @JvmOverloads constructor(
     val email: String? = null,
     val phone: String? = null,
     val gender: String? = null,
-    val nationality: String? = null,
     val countryOfResidence: String? = null,
     val addressLine1: String? = null,
     val addressLine2: String? = null,
@@ -93,9 +179,7 @@ data class UserProfile @JvmOverloads constructor(
     val postalCode: String? = null,
     val country: String? = null,
     val documentType: String? = null,
-    val documentNumber: String? = null,
-    val documentIssueDate: String? = null,
-    val documentExpiryDate: String? = null
+    val documentNumber: String? = null
 )
 
 /**
@@ -126,7 +210,8 @@ data class BasicBusinessProfile @JvmOverloads constructor(
 )
 
 /**
- * Business profile for business accounts (KYB)
+ * Business profile for business accounts (KYB), including the UBO
+ * (ultimate beneficial owner) fields the domain `Business` type carries.
  */
 data class BusinessProfile @JvmOverloads constructor(
     var name: String,
@@ -134,17 +219,26 @@ data class BusinessProfile @JvmOverloads constructor(
     val taxId: String,
     val incorporationDate: String,
     val businessType: String,
-    val incorporationCountryCode: String,
+    val countryCode: String,
     val addressLine1: String,
     val addressLine2: String? = null,
     val city: String,
-    val state: String? = null,
+    val state: String,
     val postalCode: String,
     val country: String,
     val website: String? = null,
     val email: String? = null,
     val phone: String? = null,
-    val industry: String? = null
+    val industry: String? = null,
+    val ownerName: String? = null,
+    val ownerIdType: String? = null,
+    val ownerIdNumber: String? = null,
+    val ownerAddressLine1: String? = null,
+    val ownerAddressLine2: String? = null,
+    val ownerCity: String? = null,
+    val ownerState: String? = null,
+    val ownerPostalCode: String? = null,
+    val ownerCountryCode: String? = null
 )
 
 // ============================================
@@ -240,67 +334,93 @@ data class RegisterResult constructor(
 // Origin Types
 // ============================================
 
+/**
+ * An origin as returned by the public, unauthenticated `GET /origins`
+ * listing. `metadata` is always `{}` here by design — it is a free-form
+ * blob that has held secrets and commercially sensitive data in
+ * production, so the API deliberately never exposes it on this anonymous
+ * endpoint. Origin-specific presentation fields (`company`,
+ * `gate_accent_color`, ...) are resolved through their own narrow,
+ * purpose-built flows instead (see the hosted TOS/verification gates).
+ */
 @Serializable
 data class Origin(
-    val name: String,
-    val description: String? = null,
-    @SerialName("challenge_type") val challengeType: String,
-    val enabled: Boolean = true
-)
-
-@Serializable
-internal data class OriginListResponse(
-    val result: OriginListResult
-)
-
-@Serializable
-internal data class OriginListResult(
-    val origins: List<Origin>
+    val namespace: String,
+    val status: String,
+    @SerialName("created_at") val createdAt: String,
+    @SerialName("updated_at") val updatedAt: String,
+    val metadata: Map<String, JsonElement> = emptyMap()
 )
 
 // ============================================
 // Alias Types
 // ============================================
 
+enum class AliasType {
+    @SerialName("email")
+    EMAIL,
+
+    @SerialName("phone")
+    PHONE,
+
+    @SerialName("username")
+    USERNAME,
+
+    @SerialName("other")
+    OTHER,
+
+    @SerialName("wallet")
+    WALLET
+}
+
+enum class AliasStatus {
+    @SerialName("awaiting_verification")
+    AWAITING_VERIFICATION,
+
+    @SerialName("active")
+    ACTIVE,
+
+    @SerialName("inactive")
+    INACTIVE,
+
+    @SerialName("blocked")
+    BLOCKED,
+
+    @SerialName("rejected")
+    REJECTED
+}
+
+/**
+ * An identity alias (`IdAlias` on the wire) — decoded raw, with no
+ * envelope, from `GET /aliases?alias=`, `GET /identities/me/aliases`, and
+ * `GET /identities/:urn/aliases`. `details` shape depends on [type] (e.g.
+ * `{email: "..."}`, `{phone: "..."}`), so it is kept as a raw [JsonElement].
+ */
 @Serializable
 data class Alias(
     val alias: String,
+    val type: AliasType,
     val urn: String,
     val origin: String,
-    @SerialName("created_at") val createdAt: String
-)
-
-@Serializable
-internal data class AliasResponse(
-    val result: AliasResult
-)
-
-@Serializable
-internal data class AliasResult(
-    val alias: Alias
-)
-
-// ============================================
-// Assertion Types (Wire)
-// ============================================
-
-@Serializable
-internal data class AssertionResponseWire(
-    val result: AssertionResultWire
-)
-
-@Serializable
-internal data class AssertionResultWire(
-    @SerialName("challenge_type") val challengeType: String,
-    val value: Map<String, String>
+    val status: AliasStatus,
+    @SerialName("is_public") val isPublic: Boolean,
+    @SerialName("is_primary") val isPrimary: Boolean,
+    val details: JsonElement? = null
 )
 
 /**
- * Result of assertion request
+ * Result of [AliasesClient.verify] — the JSON confirmation path of
+ * `GET /aliases/verify?token=...` (no `redirect_uri`). The `redirect_uri`
+ * variant of that endpoint is a browser-navigation feature (a 301 redirect
+ * to a hosted page) and isn't modeled as an SDK call — following it through
+ * this HTTP client would return an arbitrary non-JSON page, not data your
+ * code can use. Build the URL directly and open it in a browser/web view
+ * if you need that flow.
  */
-data class AssertionResult constructor(
-    val challengeType: ChallengeType,
-    val value: Map<String, String>
+@Serializable
+data class VerifyAliasResult(
+    val success: Boolean,
+    val alias: String
 )
 
 // ============================================
@@ -349,38 +469,88 @@ data class ExchangeApiKeyResult(
     @SerialName("token_type") val tokenType: String
 )
 
+/**
+ * Result of [ApiKeysClient.rotate]. The API's `RotateResult` only ever
+ * carries the new [secretKey] — `key_id`/`publishable_key` don't change on
+ * rotation and were never part of this response, so they aren't modeled
+ * here.
+ */
 @Serializable
 data class RotateApiKeyResult(
-    @SerialName("key_id") val keyId: String,
-    @SerialName("secret_key") val secretKey: String,
-    @SerialName("publishable_key") val publishableKey: String
+    @SerialName("secret_key") val secretKey: String
 )
 
 // ============================================
-// Identity Me Types
+// Identity Types
 // ============================================
 
+enum class IdentityStatus {
+    @SerialName("active")
+    ACTIVE,
+
+    @SerialName("inactive")
+    INACTIVE,
+
+    @SerialName("blocked")
+    BLOCKED,
+
+    @SerialName("awaiting_compliance_verification")
+    AWAITING_COMPLIANCE_VERIFICATION,
+
+    @SerialName("compliance_rejected")
+    COMPLIANCE_REJECTED,
+
+    @SerialName("compliance_fatal_rejected")
+    COMPLIANCE_FATAL_REJECTED
+}
+
+/**
+ * An identity, decoded raw off the wire (no envelope) from
+ * `GET /identities/me` and `GET /identities/:urn`, and unwrapped from
+ * `{result: {identity}}` for `PATCH /identities/me` and
+ * `PATCH /identities/:urn`.
+ */
 @Serializable
 data class IdentityMe(
     val urn: String,
     val origin: String,
     val type: String? = null,
-    val profile: Map<String, String?> = emptyMap()
+    val profile: Map<String, String?> = emptyMap(),
+    val status: IdentityStatus? = null,
+    val metadata: Map<String, JsonElement> = emptyMap()
+)
+
+/**
+ * Parameters for [IdentityClient.updateMe] / [IdentityClient.update] — only
+ * `profile` and `metadata` are updatable, and each is shallow-merged
+ * server-side into the existing values (omit a field here to leave it
+ * untouched; it is not cleared).
+ */
+data class UpdateIdentityParams @JvmOverloads constructor(
+    val profile: Map<String, String?>? = null,
+    val metadata: Map<String, Any?>? = null
+)
+
+@Serializable
+internal data class UpdateIdentityRequestWire(
+    val profile: Map<String, String?>? = null,
+    val metadata: JsonElement? = null
+)
+
+@Serializable
+internal data class UpdateIdentityResultWire(
+    val identity: IdentityMe
+)
+
+@Serializable
+internal data class UpdateIdentityResponseWire(
+    val result: UpdateIdentityResultWire,
+    @SerialName("req_id") val reqId: String? = null
 )
 
 // ============================================
 // API Key Wire Types (Internal)
 // ============================================
-
-@Serializable
-internal data class ApiKeyListResponseWire(
-    val result: List<ApiKeyInfo>
-)
-
-@Serializable
-internal data class ApiKeyResponseWire(
-    val result: ApiKeyInfo
-)
 
 @Serializable
 internal data class CreateApiKeyRequestWire(
@@ -392,33 +562,37 @@ internal data class CreateApiKeyRequestWire(
 )
 
 @Serializable
-internal data class CreateApiKeyResponseWire(
-    val result: CreateApiKeyResult
-)
-
-@Serializable
 internal data class ExchangeApiKeyRequestWire(
     val key: String,
     val scopes: List<String>? = null
 )
 
+/**
+ * Decodes either a real `ApiKeyInfo` or the API's not-quite-a-404: `GET
+ * /api-keys/:id` returns HTTP 200 with `{statusCode: 404, message: ...}`
+ * when the key doesn't exist, instead of a real 404 status
+ * (`api-key.controller.ts:305`). [keyId] is `null` on that error shape (and
+ * always present otherwise), so it's the discriminator [ApiKeysClient.get]
+ * uses to decide whether to throw.
+ */
 @Serializable
-internal data class ExchangeApiKeyResponseWire(
-    val result: ExchangeApiKeyResult
-)
-
-@Serializable
-internal data class RotateApiKeyResponseWire(
-    val result: RotateApiKeyResult
-)
-
-@Serializable
-internal data class IdentityMeResponseWire(
-    val result: IdentityMe
+internal data class ApiKeyOrErrorWire(
+    val id: String? = null,
+    @SerialName("key_id") val keyId: String? = null,
+    @SerialName("publishable_key") val publishableKey: String? = null,
+    val name: String? = null,
+    val scopes: List<String>? = null,
+    val domains: List<String>? = null,
+    val status: String? = null,
+    val expiration: String? = null,
+    val metadata: Map<String, String>? = null,
+    @SerialName("last_used_at") val lastUsedAt: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    val statusCode: Int? = null,
+    val message: String? = null
 )
 
 @Serializable
 internal data class MessageResponseWire(
     val message: String
 )
-
