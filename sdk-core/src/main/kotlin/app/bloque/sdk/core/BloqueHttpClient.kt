@@ -9,6 +9,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 private const val EXCHANGE_REFRESH_BUFFER_MS = 60_000L
@@ -194,6 +195,14 @@ class BloqueHttpClient(
 
         headers?.forEach { (key, value) ->
             requestBuilder.header(key, value)
+        }
+
+        // Every idempotent write gets a stable key, whether or not the caller
+        // supplied one, so a request is never silently sent without one
+        // (servers may reject POST/PUT without Idempotency-Key) and retries of
+        // the same call below reuse this same key instead of minting a new one.
+        if ((method == "POST" || method == "PUT") && headers?.containsKey("Idempotency-Key") != true) {
+            requestBuilder.header("Idempotency-Key", UUID.randomUUID().toString())
         }
 
         val requestBody = body?.toRequestBody("application/json".toMediaType())
