@@ -235,9 +235,19 @@ val userProfile = UserProfile(
 val session = bloque.register(
     alias = "+1234567890",
     params = IndividualRegisterParams(
-        profile = userProfile
+        profile = userProfile,
+        // The END USER's IP (from your own inbound request), not your
+        // server's egress IP — used for compliance/TOS-country
+        // resolution and recorded on compliance-decision audit rows.
+        // Only meaningful for OriginKey auth; optional today, but a
+        // future release will require it on register()/connect(alias).
+        clientIp = requestIp
     )
 )
+
+// Existing identity: pass clientIp on every connect() too — it's
+// resolved per-request, not cached from signup.
+val existingSession = bloque.connect("+1234567890", clientIp = requestIp)
 ```
 
 ### Compliance (KYC)
