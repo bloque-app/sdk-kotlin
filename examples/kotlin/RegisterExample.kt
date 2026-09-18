@@ -44,7 +44,10 @@ fun main() {
 
     val session = bloque.register(
         alias = "johndoe123",
-        params = IndividualRegisterParams(profile)
+        // clientIp should be the end user's real IP (e.g. from your web
+        // server's request), not your own backend's egress IP — it's used
+        // for compliance IP audit trails on the registration.
+        params = IndividualRegisterParams(profile, clientIp = "203.0.113.42")
     )
 
     println("User registered successfully!")
@@ -196,6 +199,21 @@ fun main() {
 
     println("Basic user registered with phone!")
     println("User URN: ${basicUserSession.getUrn()}")
+
+    // ============================================
+    // Example 8: Reconnect with clientIp for compliance IP audit
+    // ============================================
+    println("\n=== Example 8: Reconnect with clientIp ===")
+
+    // Pass the end user's real IP (never your own backend's egress IP) so
+    // the reconnection is attributed correctly for compliance audit trails.
+    val reconnectedSession = bloque.connect(
+        alias = "johndoe123",
+        clientIp = "203.0.113.42"
+    )
+
+    println("Reconnected successfully!")
+    println("User URN: ${reconnectedSession.getUrn()}")
 
     println("\n✅ All examples completed successfully!")
 }
