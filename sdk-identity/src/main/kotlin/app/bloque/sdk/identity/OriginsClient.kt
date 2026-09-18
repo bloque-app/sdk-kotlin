@@ -141,7 +141,12 @@ class OriginsClient constructor(
             profile = profileMap
         )
 
-        val headers = params.idempotencyKey?.let { mapOf("Idempotency-Key" to it) }
+        val headers = buildMap<String, String> {
+            params.idempotencyKey?.let { put("Idempotency-Key", it) }
+            // The end user's real IP, not this backend's own egress IP —
+            // omitted entirely (never sent as an empty string) when null.
+            params.clientIp?.let { put("x-original-client-ip", it) }
+        }.ifEmpty { null }
 
         val response = httpClient.post<RegisterResponseWire, RegisterRequestWire>(
             path = "/api/origins/${params.origin}/register",
