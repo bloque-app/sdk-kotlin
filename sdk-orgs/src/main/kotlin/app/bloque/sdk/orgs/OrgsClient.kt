@@ -2,6 +2,7 @@ package app.bloque.sdk.orgs
 
 import app.bloque.sdk.core.BaseClient
 import app.bloque.sdk.core.BloqueHttpClient
+import java.net.URLEncoder
 
 /**
  * Client for organization operations
@@ -50,6 +51,37 @@ class OrgsClient constructor(
         )
 
         return mapOrganization(response.result.organization)
+    }
+
+    /**
+     * Create an origin controlled by [orgUrn].
+     *
+     * `POST /api/orgs/{orgUrn}/origins` with the current user JWT. Requires
+     * a KYB-verified (active) org and `orgs.write` — origin-operator and
+     * service credentials are rejected (`403 E_USER_ONLY`). Creates an
+     * `api-key` origin, binds this org as controller, seeds default
+     * `origin-cs`/`origin-cs-read` roles, and returns
+     * [CreateOriginResult.originApiKey] once.
+     *
+     * @param orgUrn Organization URN (`did:bloque:orgs:...`)
+     * @param params Origin namespace and optional metadata
+     * @return The created origin's namespace, controller org, one-time API key, and seeded roles
+     */
+    fun createOrigin(orgUrn: String, params: CreateOriginParams): CreateOriginResult {
+        val request = CreateOriginRequestWire(
+            namespace = params.namespace,
+            metadata = params.metadata
+        )
+        val response = httpClient.post<CreateOriginResponseWire, CreateOriginRequestWire>(
+            path = "/api/orgs/${URLEncoder.encode(orgUrn, "UTF-8")}/origins",
+            body = request
+        )
+        return CreateOriginResult(
+            origin = response.origin,
+            orgUrn = response.orgUrn,
+            originApiKey = response.originApiKey,
+            roles = response.roles
+        )
     }
 
     /**
