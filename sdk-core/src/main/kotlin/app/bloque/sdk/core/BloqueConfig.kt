@@ -90,15 +90,18 @@ data class RetryConfig(
  * @param mode SDK environment mode (PRODUCTION or SANDBOX)
  * @param timeoutMs Request timeout in milliseconds (default: 30000)
  * @param retry Retry configuration for failed requests
+ * @param baseUrlOverride Optional API root. When set, replaces [Mode.baseUrl]
+ *   (sandbox/production). Trailing slashes are stripped.
  */
 data class BloqueConfig(
     val origin: String?,
     val auth: AuthConfig,
     val mode: Mode = Mode.PRODUCTION,
     val timeoutMs: Long = 30000,
-    val retry: RetryConfig = RetryConfig.DEFAULT
+    val retry: RetryConfig = RetryConfig.DEFAULT,
+    val baseUrlOverride: String? = null
 ) {
-    val baseUrl: String get() = mode.baseUrl
+    val baseUrl: String get() = (baseUrlOverride ?: mode.baseUrl).trimEnd('/')
 
     val originKey: String
         get() = when (auth) {
@@ -112,6 +115,7 @@ data class BloqueConfig(
         private var mode: Mode = Mode.PRODUCTION
         private var timeoutMs: Long = 30000
         private var retry: RetryConfig = RetryConfig.DEFAULT
+        private var baseUrlOverride: String? = null
 
         fun origin(origin: String) = apply { this.origin = origin }
 
@@ -141,6 +145,12 @@ data class BloqueConfig(
             this.retry = RetryConfig.Builder().apply(block).build()
         }
 
+        /**
+         * Override the API root (e.g. a local payment-rails or MockWebServer).
+         * When omitted, [mode] selects sandbox vs production.
+         */
+        fun baseUrl(baseUrl: String) = apply { this.baseUrlOverride = baseUrl }
+
         fun build(): BloqueConfig {
             val resolvedAuth = requireNotNull(auth) { "auth is required — call secretKey() or originKey()" }
             if (resolvedAuth is AuthConfig.OriginKey) {
@@ -151,7 +161,8 @@ data class BloqueConfig(
                 auth = resolvedAuth,
                 mode = mode,
                 timeoutMs = timeoutMs,
-                retry = retry
+                retry = retry,
+                baseUrlOverride = baseUrlOverride
             )
         }
     }

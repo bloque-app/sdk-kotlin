@@ -76,6 +76,38 @@ data class CreateOrgParams @JvmOverloads constructor(
     val idempotencyKey: String? = null
 )
 
+/**
+ * Result of [OrgsClient.assumeOrigin] — a 15-minute `kind: origin-operator`
+ * JWT. `sub` is the controller org; `act.sub` is the human who assumed.
+ */
+data class AssumeOriginResult(
+    val accessToken: String,
+    val expiresIn: Int,
+    val tokenType: String
+)
+
+/**
+ * Parameters for [OrgsClient.createOrigin].
+ *
+ * Requires a KYB-verified (active) org and `orgs.write`. The origin is
+ * created as `provider: api-key`, bound to this org, and the origin API
+ * key is returned once.
+ */
+data class CreateOriginParams @JvmOverloads constructor(
+    val namespace: String,
+    val metadata: Map<String, String?>? = null
+)
+
+/**
+ * Result of [OrgsClient.createOrigin]. [originApiKey] is shown only once.
+ */
+data class CreateOriginResult(
+    val origin: String,
+    val orgUrn: String,
+    val originApiKey: String,
+    val roles: List<String>
+)
+
 // ============================================
 // Wire Types (Internal)
 // ============================================
@@ -123,4 +155,25 @@ internal data class CreateOrgResponseWire(
 @Serializable
 internal data class CreateOrgResultWire(
     val organization: OrganizationWire
+)
+
+@Serializable
+internal data class AssumeOriginResponseWire(
+    @SerialName("access_token") val accessToken: String,
+    @SerialName("expires_in") val expiresIn: Int,
+    @SerialName("token_type") val tokenType: String
+)
+
+@Serializable
+internal data class CreateOriginRequestWire(
+    val namespace: String,
+    val metadata: Map<String, String?>? = null
+)
+
+@Serializable
+internal data class CreateOriginResponseWire(
+    val origin: String,
+    @SerialName("org_urn") val orgUrn: String,
+    @SerialName("origin_api_key") val originApiKey: String,
+    val roles: List<String>
 )

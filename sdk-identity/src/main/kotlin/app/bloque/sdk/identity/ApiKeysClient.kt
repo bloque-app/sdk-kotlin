@@ -22,8 +22,18 @@ class ApiKeysClient constructor(
         return response.result
     }
 
+    /**
+     * Create an opaque API key pair. The secret is shown only once.
+     *
+     * When the session holds a `kind: origin-operator` JWT (after
+     * `orgs.assumeOrigin`), the server binds the key to that origin
+     * (`bound_origin`) and owns it as the controller org. Scopes are
+     * capped to `OriginOperatorRoleContext` (read-only origin-scoped;
+     * no `*.any`, pay/create, or passkey-as-user). A normal user JWT
+     * still mints an unbound personal key.
+     */
     fun create(params: CreateApiKeyParams): CreateApiKeyResult {
-        val response = httpClient.post<CreateApiKeyResponseWire, CreateApiKeyRequestWire>(
+        return httpClient.post<CreateApiKeyResult, CreateApiKeyRequestWire>(
             path = "/api/api-keys",
             body = CreateApiKeyRequestWire(
                 name = params.name,
@@ -33,18 +43,24 @@ class ApiKeysClient constructor(
                 metadata = params.metadata
             )
         )
-        return response.result
     }
 
+    /**
+     * Exchange an `sk_` secret for a short-lived JWT.
+     *
+     * Unbound keys need no Authorization. Origin-bound keys with
+     * [ExchangeApiKeyParams.asIdentity] require the session's Bearer to
+     * be `kind: origin-operator` (set by `orgs.assumeOrigin`).
+     */
     fun exchange(params: ExchangeApiKeyParams): ExchangeApiKeyResult {
-        val response = httpClient.post<ExchangeApiKeyResponseWire, ExchangeApiKeyRequestWire>(
+        return httpClient.post<ExchangeApiKeyResult, ExchangeApiKeyRequestWire>(
             path = "/api/api-keys/exchange",
             body = ExchangeApiKeyRequestWire(
                 key = params.key,
-                scopes = params.scopes
+                scopes = params.scopes,
+                asIdentity = params.asIdentity
             )
         )
-        return response.result
     }
 
     fun revoke(id: String) {

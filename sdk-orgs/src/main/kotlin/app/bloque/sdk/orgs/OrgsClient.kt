@@ -2,6 +2,7 @@ package app.bloque.sdk.orgs
 
 import app.bloque.sdk.core.BaseClient
 import app.bloque.sdk.core.BloqueHttpClient
+import java.net.URLEncoder
 
 /**
  * Client for organization operations
@@ -50,6 +51,66 @@ class OrgsClient constructor(
         )
 
         return mapOrganization(response.result.organization)
+    }
+
+    /**
+     * Create an origin controlled by [orgUrn].
+     *
+     * `POST /api/orgs/{orgUrn}/origins` with the current user JWT. Requires
+     * a KYB-verified (active) org and `orgs.write` — origin-operator and
+     * service credentials are rejected (`403 E_USER_ONLY`). Creates an
+     * `api-key` origin, binds this org as controller, seeds default
+     * `origin-cs`/`origin-cs-read` roles, and returns
+     * [CreateOriginResult.originApiKey] once.
+     *
+     * @param orgUrn Organization URN (`did:bloque:orgs:...`)
+     * @param params Origin namespace and optional metadata
+     * @return The created origin's namespace, controller org, one-time API key, and seeded roles
+     */
+    fun createOrigin(orgUrn: String, params: CreateOriginParams): CreateOriginResult {
+        val request = CreateOriginRequestWire(
+            namespace = params.namespace,
+            metadata = params.metadata
+        )
+        val response = httpClient.post<CreateOriginResponseWire, CreateOriginRequestWire>(
+            path = "/api/orgs/${URLEncoder.encode(orgUrn, "UTF-8")}/origins",
+            body = request
+        )
+        return CreateOriginResult(
+            origin = response.origin,
+            orgUrn = response.orgUrn,
+            originApiKey = response.originApiKey,
+            roles = response.roles
+        )
+    }
+
+    /**
+     * Assume origin-operator credentials for [namespace].
+     *
+     * `POST /api/origins/{namespace}/as` with the current user JWT. The
+     * 15-minute `kind: origin-operator` token is pinned on this session so
+     * subsequent `identity.apiKeys.create` calls mint origin-bound keys
+     * (`bound_origin` is set server-side) and `identity.apiKeys.exchange`
+     * can send `as_identity`.
+     *
+     * The grant is read-only and origin-scoped (`OriginOperatorRoleContext`).
+     * It never includes `*.any`, pay/create, or passkey-as-user. Org-admin
+     * scopes never enter this token.
+     *
+     * @param namespace Origin namespace this org controls
+     * @return Operator JWT (`accessToken`, `expiresIn`, `tokenType`)
+     */
+    fun assumeOrigin(namespace: String): AssumeOriginResult {
+        val response = httpClient.post<AssumeOriginResponseWire, Map<String, String>>(
+            path = "/api/origins/$namespace/as",
+            body = emptyMap()
+        )
+        httpClient.pinAccessToken(response.accessToken)
+        return AssumeOriginResult(
+            accessToken = response.accessToken,
+            expiresIn = response.expiresIn,
+            tokenType = response.tokenType
+        )
     }
 
     private fun mapOrganization(wire: OrganizationWire): Organization {
